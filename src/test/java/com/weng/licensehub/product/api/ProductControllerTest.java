@@ -23,7 +23,9 @@ import com.weng.licensehub.product.domain.Product;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
-import java.util.Optional;
+import com.weng.licensehub.product.application.ProductNotFoundException;
+
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import java.util.List;
 
 @WebMvcTest(ProductController.class)
@@ -95,7 +97,7 @@ class ProductControllerTest {
         given(product.getUpdatedAt()).willReturn(timestamp);
 
         given(productService.findById(id))
-                .willReturn(Optional.of(product));
+                .willReturn((product));
 
         mockMvc.perform(get("/api/products/{id}", id))
                 .andExpect(status().isOk())
@@ -108,10 +110,20 @@ class ProductControllerTest {
         UUID id = UUID.fromString("7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
 
         given(productService.findById(id))
-                .willReturn(Optional.empty());
+                .willThrow(new ProductNotFoundException(
+                        id));
+
 
         mockMvc.perform(get("/api/products/{id}", id))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("Product not found"))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail")
+                        .value("Product '" + id + "' was not found"))
+                .andExpect(jsonPath("$.instance")
+                        .value("/api/products/" + id));
     }
 
     @Test

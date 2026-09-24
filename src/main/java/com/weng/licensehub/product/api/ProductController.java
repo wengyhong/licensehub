@@ -44,11 +44,11 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
-    ResponseEntity<ProductResponse> findById(@PathVariable UUID id)
+    ProductResponse findById(@PathVariable UUID id)
     {
-       var response = productService.findById(id).map(this::toResponse);
+       var response = productService.findById(id);
 
-       return ResponseEntity.of(response);
+       return toResponse(response);
     }
 
     private ProductResponse toResponse(Product product)

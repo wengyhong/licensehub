@@ -35,9 +35,9 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public Optional<Product> findById(UUID id)
+    public Product findById(UUID id)
     {
-        return repository.findById(id);
+        return repository.findById(id).orElseThrow(()-> new ProductNotFoundException(id));
     }
 
 

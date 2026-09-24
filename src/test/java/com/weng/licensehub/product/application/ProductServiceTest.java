@@ -12,6 +12,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import java.util.Optional;
+import java.util.UUID;
+
 public class ProductServiceTest {
 
     private ProductRepository repository;
@@ -35,5 +40,22 @@ public class ProductServiceTest {
 
         verify(repository).save(result);
 
+    }
+
+    @Test
+    void getByIdThrowsWhenProductDoesNotExist() {
+        UUID id = UUID.fromString(
+                "7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
+
+        given(repository.findById(id))
+                .willReturn(Optional.empty());
+
+        ProductNotFoundException exception = assertThrows(
+                ProductNotFoundException.class,
+                () -> service.findById(id));
+
+        assertEquals(
+                "Product '" + id + "' was not found",
+                exception.getMessage());
     }
 }
