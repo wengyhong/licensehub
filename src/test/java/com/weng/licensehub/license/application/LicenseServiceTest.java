@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -23,89 +24,143 @@ import com.weng.licensehub.product.application.ProductNotFoundException;
 import com.weng.licensehub.product.domain.Product;
 import com.weng.licensehub.product.persistence.ProductRepository;
 
+class LicenseServiceTest {
 
+        private LicenseRepository licenseRepository;
+        private ProductRepository productRepository;
+        private LicenseKeyGenerator licenseKeyGenerator;
+        private LicenseService service;
 
-public class LicenseServiceTest {
+        @BeforeEach
+        void setUp() {
+                licenseRepository = mock(LicenseRepository.class);
+                productRepository = mock(ProductRepository.class);
+                licenseKeyGenerator = mock(LicenseKeyGenerator.class);
 
-    private LicenseRepository licenseRepository;
-    private ProductRepository productRepository;
-    private LicenseKeyGenerator licenseKeyGenerator;
-    private LicenseService service;
+                service = new LicenseService(
+                                licenseRepository,
+                                productRepository,
+                                licenseKeyGenerator);
+        }
 
-    @BeforeEach
-    void setUp() {
-        licenseRepository = mock(LicenseRepository.class);
-        productRepository = mock(ProductRepository.class);
-        licenseKeyGenerator = mock(LicenseKeyGenerator.class);
+        @Test
+        void issueSavesHashAndReturnsFullKey() {
+                UUID productId = UUID.randomUUID();
+                Product product = mock(Product.class);
+                Instant expiresAt = Instant.parse("2027-09-23T10:00:00Z");
 
-        service = new LicenseService(
-                licenseRepository,
-                productRepository,
-                licenseKeyGenerator);
-    }
+                String keyId = "ABCDEF0123456789";
+                String keyHash = "a".repeat(64);
+                String fullKey = "LH_" + keyId + "_secret";
 
-    @Test
-    void issueSavesHashAndReturnsFullKey() {
-        UUID productId = UUID.randomUUID();
-        Product product = mock(Product.class);
-        Instant expiresAt = Instant.parse("2027-09-23T10:00:00Z");
+                GeneratedLicenseKey generatedKey = new GeneratedLicenseKey(keyId, keyHash, fullKey);
 
-        String keyId = "ABCDEF0123456789";
-        String keyHash = "a".repeat(64);
-        String fullKey = "LH_" + keyId + "_secret";
+                given(productRepository.findById(productId))
+                                .willReturn(Optional.of(product));
 
-        GeneratedLicenseKey generatedKey = new GeneratedLicenseKey(keyId, keyHash, fullKey);
+                given(licenseKeyGenerator.generate())
+                                .willReturn(generatedKey);
 
-        given(productRepository.findById(productId))
-                .willReturn(Optional.of(product));
+                given(licenseRepository.save(any(License.class)))
+                                .willAnswer(invocation -> invocation.getArgument(0));
 
-        given(licenseKeyGenerator.generate())
-                .willReturn(generatedKey);
+                IssuedLicense result = service.issue(
+                                productId,
+                                "  customer@example.com  ",
+                                2,
+                                expiresAt);
 
-        given(licenseRepository.save(any(License.class)))
-                .willAnswer(invocation -> invocation.getArgument(0));
+                License saved = result.license();
 
-        IssuedLicense result = service.issue(
-                productId,
-                "  customer@example.com  ",
-                2,
-                expiresAt);
+                assertSame(product, saved.getProduct());
+                assertEquals(keyId, saved.getKeyId());
+                assertEquals(keyHash, saved.getKeyHash());
+                assertEquals("customer@example.com", saved.getCustomerEmail());
+                assertEquals(2, saved.getMaxActivations());
+                assertEquals(expiresAt, saved.getExpiresAt());
+                assertEquals(LicenseStatus.ACTIVE, saved.getStatus());
+                assertEquals(fullKey, result.fullKey());
 
-        License saved = result.license();
+                verify(licenseRepository).save(saved);
+        }
 
-        assertSame(product, saved.getProduct());
-        assertEquals(keyId, saved.getKeyId());
-        assertEquals(keyHash, saved.getKeyHash());
-        assertEquals("customer@example.com", saved.getCustomerEmail());
-        assertEquals(2, saved.getMaxActivations());
-        assertEquals(expiresAt, saved.getExpiresAt());
-        assertEquals(LicenseStatus.ACTIVE, saved.getStatus());
-        assertEquals(fullKey, result.fullKey());
+        @Test
+        void issueThrowsWhenProductDoesNotExist() {
+                UUID productId = UUID.randomUUID();
 
-        verify(licenseRepository).save(saved);
-    }
+                given(productRepository.findById(productId))
+                                .willReturn(Optional.empty());
 
-    @Test
-    void issueThrowsWhenProductDoesNotExist() {
-        UUID productId = UUID.randomUUID();
+                ProductNotFoundException exception = assertThrows(
+                                ProductNotFoundException.class,
+                                () -> service.issue(
+                                                productId,
+                                                "customer@example.com",
+                                                2,
+                                                null));
 
-        given(productRepository.findById(productId))
-                .willReturn(Optional.empty());
+                assertEquals(
+                                "Product '" + productId + "' was not found",
+                                exception.getMessage());
 
-        ProductNotFoundException exception = assertThrows(
-                ProductNotFoundException.class,
-                () -> service.issue(
-                        productId,
-                        "customer@example.com",
-                        2,
-                        null));
+                verifyNoInteractions(
+                                licenseKeyGenerator,
+                                licenseRepository);
+        }
 
-        assertEquals(
-                "Product '" + productId + "' was not found",
-                exception.getMessage());
+        @Test
+        void getByIdThrowsWhenLicenseDoesNotExist() {
+                UUID licenseId = UUID.randomUUID();
 
-        verifyNoInteractions(
-                licenseKeyGenerator,
-                licenseRepository);
-    }
+                given(licenseRepository.findById(licenseId))
+                                .willReturn(Optional.empty());
+
+                LicenseNotFoundException exception = assertThrows(
+                                LicenseNotFoundException.class,
+                                () -> service.getById(licenseId));
+
+                assertEquals(
+                                "License '" + licenseId + "' not found",
+                                exception.getMessage());
+        }
+
+        @Test
+        void findAllByProductIdReturnsRepositoryResults() {
+                UUID productId = UUID.randomUUID();
+                License license = mock(License.class);
+                List<License> expected = List.of(license);
+
+                given(productRepository.existsById(productId))
+                                .willReturn(true);
+
+                given(
+                                licenseRepository
+                                                .findAllByProduct_IdOrderByCreatedAtDesc(productId))
+                                .willReturn(expected);
+
+                List<License> result = service.findAllByProductId(productId);
+
+                assertEquals(expected, result);
+
+                verify(licenseRepository)
+                                .findAllByProduct_IdOrderByCreatedAtDesc(productId);
+        }
+
+        @Test
+        void findAllByProductIdThrowsWhenProductDoesNotExist() {
+                UUID productId = UUID.randomUUID();
+
+                given(productRepository.existsById(productId))
+                                .willReturn(false);
+
+                ProductNotFoundException exception = assertThrows(
+                                ProductNotFoundException.class,
+                                () -> service.findAllByProductId(productId));
+
+                assertEquals(
+                                "Product '" + productId + "' was not found",
+                                exception.getMessage());
+
+                verifyNoInteractions(licenseRepository);
+        }
 }
