@@ -126,4 +126,61 @@ class MachineActivationRepositoryTest {
                                 targetLicenseId))
                 .isEqualTo(2);
     }
+
+    @Test
+void allowsSameMachineToReactivateAfterDeactivation() {
+    Product product = productRepository.save(
+            new Product("Product", null));
+
+    License license = licenseRepository.save(
+            new License(
+                    product,
+                    "1234567890ABCDEF",
+                    "a".repeat(64),
+                    "customer@example.com",
+                    1,
+                    null));
+
+    String fingerprintHash = "f".repeat(64);
+
+    MachineActivation previous =
+            activationRepository.saveAndFlush(
+                    new MachineActivation(
+                            license,
+                            fingerprintHash,
+                            "Development laptop"));
+
+    previous.deactivate(Instant.now());
+    entityManager.flush();
+
+    MachineActivation reactivated =
+            activationRepository.saveAndFlush(
+                    new MachineActivation(
+                            license,
+                            fingerprintHash,
+                            "Development laptop"));
+
+    UUID reactivatedId = reactivated.getId();
+    UUID licenseId = license.getId();
+
+    entityManager.clear();
+
+    MachineActivation active =
+            activationRepository
+                    .findByLicense_IdAndMachineFingerprintHashAndDeactivatedAtIsNull(
+                            licenseId,
+                            fingerprintHash)
+                    .orElseThrow();
+
+    assertThat(active.getId())
+            .isEqualTo(reactivatedId);
+
+    assertThat(active.getId())
+            .isNotEqualTo(previous.getId());
+
+    assertThat(activationRepository
+            .countByLicense_IdAndDeactivatedAtIsNull(
+                    licenseId))
+            .isEqualTo(1);
+}
 }

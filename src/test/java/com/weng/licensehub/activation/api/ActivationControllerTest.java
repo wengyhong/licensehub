@@ -27,6 +27,9 @@ import com.weng.licensehub.activation.application.ActivationLimitExceededExcepti
 import com.weng.licensehub.activation.application.LicenseNotActivatableException;
 import com.weng.licensehub.license.application.InvalidLicenseKeyException;
 
+import static org.mockito.Mockito.doThrow;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+
 @WebMvcTest(ActivationController.class)
 class ActivationControllerTest {
 
@@ -199,5 +202,50 @@ class ActivationControllerTest {
                           "machineName": "Development laptop"
                         }
                         """));
+    }
+
+    @Test
+    void deactivateReturns204() throws Exception {
+        mockMvc.perform(post("/api/activations/deactivate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                          "licenseKey": "full-license-key",
+                          "machineFingerprint": "raw-machine-fingerprint"
+                        }
+                        """))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        verify(activationService).deactivate(
+                "full-license-key",
+                "raw-machine-fingerprint");
+    }
+
+    @Test
+    void deactivateReturns401ForInvalidLicenseKey()
+            throws Exception {
+
+        doThrow(new InvalidLicenseKeyException())
+                .when(activationService)
+                .deactivate(
+                        "full-license-key",
+                        "raw-machine-fingerprint");
+
+        mockMvc.perform(post("/api/activations/deactivate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                          "licenseKey": "full-license-key",
+                          "machineFingerprint": "raw-machine-fingerprint"
+                        }
+                        """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.title")
+                        .value("Invalid license key"))
+                .andExpect(jsonPath("$.status")
+                        .value(401))
+                .andExpect(jsonPath("$.detail")
+                        .value("Invalid license key"));
     }
 }

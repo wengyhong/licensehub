@@ -1,6 +1,7 @@
 package com.weng.licensehub.activation.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -256,4 +257,90 @@ class ActivationServiceTest {
         verify(activationRepository, never())
                 .save(any(MachineActivation.class));
     }
+
+    @Test
+    void deactivatesExistingMachine() {
+        String fullKey = "full-license-key";
+        String rawFingerprint = "raw-machine-fingerprint";
+        String fingerprintHash = "f".repeat(64);
+        UUID licenseId = UUID.randomUUID();
+
+        License license = mock(License.class);
+
+        MachineActivation activation = mock(MachineActivation.class);
+
+        when(licenseKeyVerifier.verify(fullKey))
+                .thenReturn(license);
+
+        when(license.getId())
+                .thenReturn(licenseId);
+
+        when(licenseRepository.findByIdForUpdate(licenseId))
+                .thenReturn(Optional.of(license));
+
+        when(sha256Hasher.hash(rawFingerprint))
+                .thenReturn(fingerprintHash);
+
+        when(activationRepository
+                .findByLicense_IdAndMachineFingerprintHashAndDeactivatedAtIsNull(
+                        licenseId,
+                        fingerprintHash))
+                .thenReturn(Optional.of(activation));
+
+        activationService.deactivate(
+                fullKey,
+                rawFingerprint);
+
+        verify(activation).deactivate(NOW);
+
+        verify(license, never())
+                .canActivateAt(any(Instant.class));
+
+        verify(activationRepository, never())
+                .save(any(MachineActivation.class));
+    }
+
+    @Test
+void deactivatingMachineWithoutActiveActivationIsIdempotent() {
+    String fullKey = "full-license-key";
+    String rawFingerprint = "raw-machine-fingerprint";
+    String fingerprintHash = "f".repeat(64);
+    UUID licenseId = UUID.randomUUID();
+
+    License license = mock(License.class);
+
+    when(licenseKeyVerifier.verify(fullKey))
+            .thenReturn(license);
+
+    when(license.getId())
+            .thenReturn(licenseId);
+
+    when(licenseRepository.findByIdForUpdate(licenseId))
+            .thenReturn(Optional.of(license));
+
+    when(sha256Hasher.hash(rawFingerprint))
+            .thenReturn(fingerprintHash);
+
+    when(activationRepository
+            .findByLicense_IdAndMachineFingerprintHashAndDeactivatedAtIsNull(
+                    licenseId,
+                    fingerprintHash))
+            .thenReturn(Optional.empty());
+
+    assertThatCode(() ->
+            activationService.deactivate(
+                    fullKey,
+                    rawFingerprint))
+            .doesNotThrowAnyException();
+
+    verify(license, never())
+            .canActivateAt(any(Instant.class));
+
+    verify(activationRepository, never())
+            .countByLicense_IdAndDeactivatedAtIsNull(
+                    licenseId);
+
+    verify(activationRepository, never())
+            .save(any(MachineActivation.class));
+}
 }

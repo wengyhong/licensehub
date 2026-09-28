@@ -12,7 +12,8 @@ import com.weng.licensehub.activation.application.ActivationService;
 import com.weng.licensehub.activation.domain.MachineActivation;
 
 import jakarta.validation.Valid;
-
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ResponseStatus;
 @RestController
 @RequestMapping("/api")
 public class ActivationController {
@@ -39,4 +40,15 @@ public class ActivationController {
         return new ActivationResponse(activation.getId(), activation.getLicense().getId(), activation.getMachineName(),
                 activation.getActivatedAt(), activation.getLastSeenAt());
     }
+
+    @PostMapping("/activations/deactivate")
+    @ResponseStatus (HttpStatus.NO_CONTENT)
+    public void deactivate(
+
+        @Valid
+        @RequestBody
+        DeactivateMachineRequest request)
+        {
+            activationService.deactivate(request.licenseKey(), request.machineFingerprint());
+        }
 }

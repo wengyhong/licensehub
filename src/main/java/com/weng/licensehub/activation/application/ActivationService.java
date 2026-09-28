@@ -72,4 +72,16 @@ public class ActivationService {
 
     }
 
+    @Transactional
+    public void deactivate(String licenseKey, String machineFingerprint)
+    {
+        License verifiedLicense = licenseKeyVerifier.verify(licenseKey);
+
+        License license = licenseRepository.findByIdForUpdate(verifiedLicense.getId()).orElseThrow(LicenseNotActivatableException::new);
+
+        String fingerprintHash = sha256Hasher.hash(machineFingerprint);
+
+        machineActivationRepository.findByLicense_IdAndMachineFingerprintHashAndDeactivatedAtIsNull(license.getId(), fingerprintHash).ifPresent(a -> a.deactivate(clock.instant()));
+    }
+
 }
