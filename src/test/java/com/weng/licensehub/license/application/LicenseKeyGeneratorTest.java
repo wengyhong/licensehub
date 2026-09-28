@@ -11,9 +11,11 @@ import java.util.HexFormat;
 
 import org.junit.jupiter.api.Test;
 
+import com.weng.licensehub.shared.security.Sha256Hasher;
+
 class LicenseKeyGeneratorTest {
 
-    private final LicenseKeyGenerator generator = new LicenseKeyGenerator();
+    private final LicenseKeyGenerator generator = new LicenseKeyGenerator(new Sha256Hasher());
 
     @Test
     void generateReturnDifferentKeys() {

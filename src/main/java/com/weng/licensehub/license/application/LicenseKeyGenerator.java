@@ -1,14 +1,11 @@
 package com.weng.licensehub.license.application;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.HexFormat;
 
 import org.springframework.stereotype.Component;
-
+import com.weng.licensehub.shared.security.Sha256Hasher;
 
 @Component
 public class LicenseKeyGenerator {
@@ -17,6 +14,14 @@ public class LicenseKeyGenerator {
     private static final int SECRET_BYTES = 32;
 
     private final SecureRandom secureRandom = new SecureRandom();
+
+    private final Sha256Hasher sha256Hasher;
+
+public LicenseKeyGenerator(Sha256Hasher sha256Hasher) {
+    this.sha256Hasher = sha256Hasher;
+}
+
+
 
     public GeneratedLicenseKey generate() {
 
@@ -30,7 +35,7 @@ public class LicenseKeyGenerator {
 
         String fullKey = "LH_" + keyId + "_" + secret;
 
-        String keyHash = hashSecret(secret);
+        String keyHash = sha256Hasher.hash(secret);
 
         return new GeneratedLicenseKey(keyId, keyHash, fullKey);
     }
@@ -41,22 +46,6 @@ public class LicenseKeyGenerator {
         return bytes;
     }
 
-    private String hashSecret(String secret) {
-        try {
-            byte[] secretUtf8 = secret.getBytes(StandardCharsets.UTF_8);
 
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-
-            byte[] hashBytes = digest.digest(secretUtf8);
-
-            return HexFormat.of().formatHex(hashBytes);
-
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException(
-                    "SHA-256 is not available",
-                    exception);
-        }
-
-    }
 
 }

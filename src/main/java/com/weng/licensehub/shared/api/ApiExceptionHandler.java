@@ -7,6 +7,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.weng.licensehub.license.application.LicenseNotFoundException;
 import com.weng.licensehub.product.application.ProductNotFoundException;
+import com.weng.licensehub.activation.application.ActivationLimitExceededException;
+import com.weng.licensehub.activation.application.LicenseNotActivatableException;
+import com.weng.licensehub.license.application.InvalidLicenseKeyException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -29,6 +32,45 @@ public class ApiExceptionHandler {
 
         return problem;
 
+    }
+
+    @ExceptionHandler(InvalidLicenseKeyException.class)
+    public ProblemDetail handleInvalidLicenseKey(
+            InvalidLicenseKeyException exception) {
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNAUTHORIZED,
+                exception.getMessage());
+
+        problem.setTitle("Invalid license key");
+
+        return problem;
+    }
+
+    @ExceptionHandler(LicenseNotActivatableException.class)
+    public ProblemDetail handleLicenseNotActivatable(
+            LicenseNotActivatableException exception) {
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.FORBIDDEN,
+                exception.getMessage());
+
+        problem.setTitle("License not activatable");
+
+        return problem;
+    }
+
+    @ExceptionHandler(ActivationLimitExceededException.class)
+    public ProblemDetail handleActivationLimitExceeded(
+            ActivationLimitExceededException exception) {
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                exception.getMessage());
+
+        problem.setTitle("Activation limit exceeded");
+
+        return problem;
     }
 
 }

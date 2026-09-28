@@ -18,6 +18,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import java.util.Objects;
 
 @Entity
 @Table(name = "licenses")
@@ -127,5 +128,19 @@ public class License {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public boolean isExpiredAt(Instant instant) {
+        Objects.requireNonNull(
+                instant,
+                "instant must not be null");
+
+        return expiresAt != null
+                && !expiresAt.isAfter(instant);
+    }
+
+    public boolean canActivateAt(Instant instant) {
+        return status == LicenseStatus.ACTIVE
+                && !isExpiredAt(instant);
     }
 }
