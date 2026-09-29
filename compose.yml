@@ -20,5 +20,25 @@ services:
       timeout: 5s
       retries: 10
 
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: licensehub-api:local
+    container_name: licensehub-api
+
+    environment:
+      LICENSEHUB_DB_URL: jdbc:postgresql://postgres:5432/licensehub
+      LICENSEHUB_DB_USERNAME: licensehub_app
+      LICENSEHUB_DB_PASSWORD: ${LICENSEHUB_DB_PASSWORD:?LICENSEHUB_DB_PASSWORD is required}
+
+    ports:
+      - "8080:8080"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   licensehub_postgres_data:
