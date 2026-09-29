@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: licensehub-postgres
+
+    environment:
+      POSTGRES_DB: licensehub
+      POSTGRES_USER: licensehub_app
+      POSTGRES_PASSWORD: ${LICENSEHUB_DB_PASSWORD:?LICENSEHUB_DB_PASSWORD is required}
+
+    ports:
+    - "5434:5432"
+
+    volumes:
+    - licensehub_postgres_data:/var/lib/postgresql
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U licensehub_app -d licensehub"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  licensehub_postgres_data:
