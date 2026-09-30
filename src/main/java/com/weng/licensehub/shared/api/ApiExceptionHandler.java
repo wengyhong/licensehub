@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.weng.licensehub.license.application.LicenseNotFoundException;
 import com.weng.licensehub.product.application.ProductNotFoundException;
+import com.weng.licensehub.user.application.EmailAlreadyRegisteredException;
 import com.weng.licensehub.activation.application.ActivationLimitExceededException;
 import com.weng.licensehub.activation.application.LicenseNotActivatableException;
 import com.weng.licensehub.license.application.InvalidLicenseKeyException;
@@ -69,6 +70,18 @@ public class ApiExceptionHandler {
                 exception.getMessage());
 
         problem.setTitle("Activation limit exceeded");
+
+        return problem;
+    }
+
+    @ExceptionHandler(EmailAlreadyRegisteredException.class)
+    public ProblemDetail handleEmailAlreadyRegistered(
+            EmailAlreadyRegisteredException exception) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                exception.getMessage());
+
+        problem.setTitle("Email already registered");
 
         return problem;
     }
