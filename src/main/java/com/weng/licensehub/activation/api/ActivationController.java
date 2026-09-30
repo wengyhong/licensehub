@@ -12,8 +12,7 @@ import com.weng.licensehub.activation.application.ActivationService;
 import com.weng.licensehub.activation.domain.MachineActivation;
 
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
+
 @RestController
 @RequestMapping("/api")
 public class ActivationController {
