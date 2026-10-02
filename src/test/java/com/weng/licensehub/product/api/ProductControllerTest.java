@@ -27,8 +27,9 @@ import com.weng.licensehub.product.application.ProductNotFoundException;
 
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import java.util.List;
-
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 @WebMvcTest(ProductController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class ProductControllerTest {
 
     @Autowired

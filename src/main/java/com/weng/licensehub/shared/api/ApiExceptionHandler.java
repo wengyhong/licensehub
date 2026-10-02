@@ -11,6 +11,7 @@ import com.weng.licensehub.user.application.EmailAlreadyRegisteredException;
 import com.weng.licensehub.activation.application.ActivationLimitExceededException;
 import com.weng.licensehub.activation.application.LicenseNotActivatableException;
 import com.weng.licensehub.license.application.InvalidLicenseKeyException;
+import org.springframework.security.core.AuthenticationException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -82,6 +83,19 @@ public class ApiExceptionHandler {
                 exception.getMessage());
 
         problem.setTitle("Email already registered");
+
+        return problem;
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ProblemDetail handleAuthenticationFailure(
+            AuthenticationException exception) {
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNAUTHORIZED,
+                "Invalid email or password");
+
+        problem.setTitle("Authentication failed");
 
         return problem;
     }

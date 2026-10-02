@@ -22,126 +22,233 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.weng.licensehub.user.application.EmailAlreadyRegisteredException;
 import com.weng.licensehub.user.application.UserRegistrationService;
 import com.weng.licensehub.user.domain.UserAccount;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
+import org.springframework.security.web.context.SecurityContextRepository;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.authentication.BadCredentialsException;
 
 @WebMvcTest(AuthController.class)
+@AutoConfigureMockMvc(addFilters = false)
+
 class AuthControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+        @Autowired
+        private MockMvc mockMvc;
 
-    @MockitoBean
-    private UserRegistrationService registrationService;
+        @MockitoBean
+        private UserRegistrationService registrationService;
 
-    @Test
-    void registerReturns201AndSafeUserResponse()
-            throws Exception {
+        @MockitoBean
+        private AuthenticationManager authenticationManager;
 
-        UUID id = UUID.fromString(
-                "7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
+        @MockitoBean
+        private SecurityContextRepository securityContextRepository;
 
-        Instant createdAt =
-                Instant.parse("2026-09-30T10:00:00Z");
+        @MockitoBean
+        private SessionAuthenticationStrategy sessionAuthenticationStrategy;
 
-        UserAccount account = mock(UserAccount.class);
+        @Test
+        void registerReturns201AndSafeUserResponse()
+                        throws Exception {
 
-        when(account.getId()).thenReturn(id);
-        when(account.getEmail())
-                .thenReturn("alice@example.com");
-        when(account.getCreatedAt())
-                .thenReturn(createdAt);
+                UUID id = UUID.fromString(
+                                "7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
 
-        when(registrationService.register(
-                "alice@example.com",
-                "correct-horse-battery-staple"))
-                .thenReturn(account);
+                Instant createdAt = Instant.parse("2026-09-30T10:00:00Z");
 
-        mockMvc.perform(post("/api/auth/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                        {
-                          "email": "alice@example.com",
-                          "password": "correct-horse-battery-staple"
-                        }
-                        """))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id")
-                        .value(id.toString()))
-                .andExpect(jsonPath("$.email")
-                        .value("alice@example.com"))
-                .andExpect(jsonPath("$.createdAt")
-                        .value(createdAt.toString()))
-                .andExpect(jsonPath("$.password")
-                        .doesNotExist())
-                .andExpect(jsonPath("$.passwordHash")
-                        .doesNotExist());
+                UserAccount account = mock(UserAccount.class);
 
-        verify(registrationService).register(
-                "alice@example.com",
-                "correct-horse-battery-staple");
-    }
+                when(account.getId()).thenReturn(id);
+                when(account.getEmail())
+                                .thenReturn("alice@example.com");
+                when(account.getCreatedAt())
+                                .thenReturn(createdAt);
 
-    @Test
-    void registerReturns400ForInvalidEmail()
-            throws Exception {
+                when(registrationService.register(
+                                "alice@example.com",
+                                "correct-horse-battery-staple"))
+                                .thenReturn(account);
 
-        mockMvc.perform(post("/api/auth/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                        {
-                          "email": "not-an-email",
-                          "password": "correct-horse-battery-staple"
-                        }
-                        """))
-                .andExpect(status().isBadRequest());
+                mockMvc.perform(post("/api/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {
+                                                  "email": "alice@example.com",
+                                                  "password": "correct-horse-battery-staple"
+                                                }
+                                                """))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.id")
+                                                .value(id.toString()))
+                                .andExpect(jsonPath("$.email")
+                                                .value("alice@example.com"))
+                                .andExpect(jsonPath("$.createdAt")
+                                                .value(createdAt.toString()))
+                                .andExpect(jsonPath("$.password")
+                                                .doesNotExist())
+                                .andExpect(jsonPath("$.passwordHash")
+                                                .doesNotExist());
 
-        verifyNoInteractions(registrationService);
-    }
+                verify(registrationService).register(
+                                "alice@example.com",
+                                "correct-horse-battery-staple");
+        }
 
-    @Test
-    void registerReturns400ForShortPassword()
-            throws Exception {
+        @Test
+        void registerReturns400ForInvalidEmail()
+                        throws Exception {
 
-        mockMvc.perform(post("/api/auth/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                        {
-                          "email": "alice@example.com",
-                          "password": "short"
-                        }
-                        """))
-                .andExpect(status().isBadRequest());
+                mockMvc.perform(post("/api/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {
+                                                  "email": "not-an-email",
+                                                  "password": "correct-horse-battery-staple"
+                                                }
+                                                """))
+                                .andExpect(status().isBadRequest());
 
-        verifyNoInteractions(registrationService);
-    }
+                verifyNoInteractions(registrationService);
+        }
 
-    @Test
-    void registerReturns409ForDuplicateEmail()
-            throws Exception {
+        @Test
+        void registerReturns400ForShortPassword()
+                        throws Exception {
 
-        when(registrationService.register(
-                "alice@example.com",
-                "correct-horse-battery-staple"))
-                .thenThrow(
-                        new EmailAlreadyRegisteredException());
+                mockMvc.perform(post("/api/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {
+                                                  "email": "alice@example.com",
+                                                  "password": "short"
+                                                }
+                                                """))
+                                .andExpect(status().isBadRequest());
 
-        mockMvc.perform(post("/api/auth/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                        {
-                          "email": "alice@example.com",
-                          "password": "correct-horse-battery-staple"
-                        }
-                        """))
-                .andExpect(status().isConflict())
-                .andExpect(content().contentTypeCompatibleWith(
-                        MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.title")
-                        .value("Email already registered"))
-                .andExpect(jsonPath("$.status").value(409))
-                .andExpect(jsonPath("$.detail")
-                        .value(
-                                "An account with this email already exists"))
-                .andExpect(jsonPath("$.instance")
-                        .value("/api/auth/register"));
-    }
+                verifyNoInteractions(registrationService);
+        }
+
+        @Test
+        void registerReturns409ForDuplicateEmail()
+                        throws Exception {
+
+                when(registrationService.register(
+                                "alice@example.com",
+                                "correct-horse-battery-staple"))
+                                .thenThrow(
+                                                new EmailAlreadyRegisteredException());
+
+                mockMvc.perform(post("/api/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {
+                                                  "email": "alice@example.com",
+                                                  "password": "correct-horse-battery-staple"
+                                                }
+                                                """))
+                                .andExpect(status().isConflict())
+                                .andExpect(content().contentTypeCompatibleWith(
+                                                MediaType.APPLICATION_PROBLEM_JSON))
+                                .andExpect(jsonPath("$.title")
+                                                .value("Email already registered"))
+                                .andExpect(jsonPath("$.status").value(409))
+                                .andExpect(jsonPath("$.detail")
+                                                .value(
+                                                                "An account with this email already exists"))
+                                .andExpect(jsonPath("$.instance")
+                                                .value("/api/auth/register"));
+        }
+
+        @AfterEach
+        void clearSecurityContext() {
+                SecurityContextHolder.clearContext();
+        }
+
+        @Test
+        void loginReturns200AndCreatesAuthenticatedSession()
+                        throws Exception {
+
+                Authentication authentication = mock(Authentication.class);
+
+                when(authentication.getName())
+                                .thenReturn("alice@example.com");
+
+                when(authenticationManager.authenticate(
+                                any(Authentication.class)))
+                                .thenReturn(authentication);
+
+                mockMvc.perform(post("/api/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {
+                                                  "email": "alice@example.com",
+                                                  "password": "correct-horse-battery-staple"
+                                                }
+                                                """))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.email")
+                                                .value("alice@example.com"));
+
+                verify(authenticationManager).authenticate(
+                                argThat(candidate -> candidate instanceof UsernamePasswordAuthenticationToken token
+                                                && token.getName()
+                                                                .equals("alice@example.com")
+                                                && token.getCredentials()
+                                                                .equals("correct-horse-battery-staple")
+                                                && !token.isAuthenticated()));
+
+                verify(sessionAuthenticationStrategy)
+                                .onAuthentication(
+                                                eq(authentication),
+                                                any(HttpServletRequest.class),
+                                                any(HttpServletResponse.class));
+
+                verify(securityContextRepository)
+                                .saveContext(
+                                                argThat(context -> context.getAuthentication() == authentication),
+                                                any(HttpServletRequest.class),
+                                                any(HttpServletResponse.class));
+        }
+
+        @Test
+        void loginReturns401ForInvalidCredentials()
+                        throws Exception {
+
+                when(authenticationManager.authenticate(
+                                any(Authentication.class)))
+                                .thenThrow(new BadCredentialsException(
+                                                "Internal authentication details"));
+
+                mockMvc.perform(post("/api/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {
+                                                  "email": "alice@example.com",
+                                                  "password": "wrong-password"
+                                                }
+                                                """))
+                                .andExpect(status().isUnauthorized())
+                                .andExpect(jsonPath("$.title")
+                                                .value("Authentication failed"))
+                                .andExpect(jsonPath("$.detail")
+                                                .value("Invalid email or password"));
+
+                verifyNoInteractions(
+                                sessionAuthenticationStrategy,
+                                securityContextRepository);
+        }
 }
