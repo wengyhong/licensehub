@@ -18,6 +18,9 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import com.weng.licensehub.user.domain.UserAccount;
+import com.weng.licensehub.user.persistence.UserAccountRepository;
+
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -27,7 +30,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 @AutoConfigureMockMvc
 @Testcontainers
 class ActivationFlowIntegrationTest {
-
+@Autowired
+private UserAccountRepository userAccountRepository;
         @Container
         @ServiceConnection
         static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18-alpine");
@@ -40,6 +44,11 @@ class ActivationFlowIntegrationTest {
 
         @Test
         void completesActivationLifecycle() throws Exception {
+
+                userAccountRepository.save(
+        new UserAccount(
+                "manager@example.com",
+                "{noop}unused"));
                 String productId = createProduct();
 
                 String licenseKey = issueLicense(productId);

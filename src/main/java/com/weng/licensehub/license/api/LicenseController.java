@@ -19,7 +19,7 @@ import com.weng.licensehub.license.application.LicenseService;
 import com.weng.licensehub.license.domain.License;
 
 import jakarta.validation.Valid;
-
+import java.security.Principal;
 @RestController
 @RequestMapping("/api")
 public class LicenseController {
@@ -35,8 +35,9 @@ public class LicenseController {
     public IssuedLicenseResponse issue(
             @PathVariable UUID productId,
 
-            @Valid @RequestBody CreateLicenseRequest request) {
-        IssuedLicense issued = licenseService.issue(productId, request.customerEmail(), request.maxActivations(),
+            @Valid @RequestBody CreateLicenseRequest request,
+            Principal principal ){
+        IssuedLicense issued = licenseService.issueForOwner(productId, principal.getName(), request.customerEmail(), request.maxActivations(),
                 request.expiresAt());
 
         return new IssuedLicenseResponse(toResponse(issued.license()), issued.fullKey());
@@ -49,13 +50,13 @@ public class LicenseController {
     }
 
     @GetMapping("/products/{productId}/licenses")
-    public List<LicenseResponse> findAllByProductId(@PathVariable UUID productId)
+    public List<LicenseResponse> findAllByProductId(@PathVariable UUID productId, Principal principal)
     {
-        return licenseService.findAllByProductId(productId).stream().map(this::toResponse).toList();
+        return licenseService.findAllByProductIdForOwner(productId, principal.getName()).stream().map(this::toResponse).toList();
     }
     @GetMapping("/licenses/{licenseId}")
-    public LicenseResponse findById(@PathVariable UUID licenseId)
+    public LicenseResponse findById(@PathVariable UUID licenseId, Principal principal)
     {
-        return toResponse(licenseService.getById(licenseId));
+        return toResponse(licenseService.getByIdForOwner(licenseId, principal.getName()));
     }
 }

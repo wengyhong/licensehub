@@ -7,7 +7,6 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.weng.licensehub.product.application.ProductService;
 
-import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -28,124 +27,132 @@ import com.weng.licensehub.product.application.ProductNotFoundException;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import java.util.List;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import static org.mockito.Mockito.when;
+
 @WebMvcTest(ProductController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class ProductControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+        @Autowired
+        private MockMvc mockMvc;
 
-    @MockitoBean
-    private ProductService productService;
+        @MockitoBean
+        private ProductService productService;
 
-    @Test
-    void createReturns201AndCreatedProduct() throws Exception {
-        UUID id = UUID.fromString("7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
-        Instant timestamp = Instant.parse("2026-09-23T10:00:00Z");
+        @Test
+        void createReturns201AndCreatedProduct() throws Exception {
+                UUID id = UUID.fromString("7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
+                Instant timestamp = Instant.parse("2026-09-23T10:00:00Z");
 
-        Product product = mock(Product.class);
-        given(product.getId()).willReturn(id);
-        given(product.getName()).willReturn("LicenseHub Desktop");
-        given(product.getDescription()).willReturn("Desktop product");
-        given(product.getCreatedAt()).willReturn(timestamp);
-        given(product.getUpdatedAt()).willReturn(timestamp);
+                Product product = mock(Product.class);
+                when(product.getId()).thenReturn(id);
+                when(product.getName()).thenReturn("LicenseHub Desktop");
+                when(product.getDescription()).thenReturn("Desktop product");
+                when(product.getCreatedAt()).thenReturn(timestamp);
+                when(product.getUpdatedAt()).thenReturn(timestamp);
 
-        given(productService.create(
-                "LicenseHub Desktop",
-                "Desktop product")).willReturn(product);
+                when(productService.createForOwner(
+                                "owner@example.com",
+                                "LicenseHub Desktop",
+                                "Desktop product")).thenReturn(product);
 
-        mockMvc.perform(post("/api/products")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                        {
-                          "name": "LicenseHub Desktop",
-                          "description": "Desktop product"
-                        }
-                        """))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(id.toString()))
-                .andExpect(jsonPath("$.name").value("LicenseHub Desktop"))
-                .andExpect(jsonPath("$.description").value("Desktop product"))
-                .andExpect(jsonPath("$.createdAt").value(timestamp.toString()))
-                .andExpect(jsonPath("$.updatedAt").value(timestamp.toString()));
-    }
+                mockMvc.perform(post("/api/products")
+                                .principal(() -> "owner@example.com")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {
+                                                  "name": "LicenseHub Desktop",
+                                                  "description": "Desktop product"
+                                                }
+                                                """))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.id").value(id.toString()))
+                                .andExpect(jsonPath("$.name").value("LicenseHub Desktop"))
+                                .andExpect(jsonPath("$.description").value("Desktop product"))
+                                .andExpect(jsonPath("$.createdAt").value(timestamp.toString()))
+                                .andExpect(jsonPath("$.updatedAt").value(timestamp.toString()));
+        }
 
-    @Test
-    void createReturns400WhenNameIsBlank() throws Exception {
-        mockMvc.perform(post("/api/products")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                        {
-                          "name": " ",
-                          "description": "Invalid product"
-                        }
-                        """))
-                .andExpect(status().isBadRequest());
+        @Test
+        void createReturns400WhenNameIsBlank() throws Exception {
+                mockMvc.perform(post("/api/products")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {
+                                                  "name": " ",
+                                                  "description": "Invalid product"
+                                                }
+                                                """))
+                                .andExpect(status().isBadRequest());
 
-        verifyNoInteractions(productService);
-    }
+                verifyNoInteractions(productService);
+        }
 
-    @Test
-    void findByIdReturns200WhenProductExists() throws Exception {
-        UUID id = UUID.fromString("7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
-        Instant timestamp = Instant.parse("2026-09-23T10:00:00Z");
+        @Test
+        void findByIdReturns200WhenProductExists() throws Exception {
+                UUID id = UUID.fromString("7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
+                Instant timestamp = Instant.parse("2026-09-23T10:00:00Z");
 
-        Product product = mock(Product.class);
-        given(product.getId()).willReturn(id);
-        given(product.getName()).willReturn("LicenseHub Desktop");
-        given(product.getDescription()).willReturn("Desktop product");
-        given(product.getCreatedAt()).willReturn(timestamp);
-        given(product.getUpdatedAt()).willReturn(timestamp);
+                Product product = mock(Product.class);
+                when(product.getId()).thenReturn(id);
+                when(product.getName()).thenReturn("LicenseHub Desktop");
+                when(product.getDescription()).thenReturn("Desktop product");
+                when(product.getCreatedAt()).thenReturn(timestamp);
+                when(product.getUpdatedAt()).thenReturn(timestamp);
+                when(productService.findById(
+                                id,
+                                "owner@example.com"))
+                                .thenReturn(product);
 
-        given(productService.findById(id))
-                .willReturn((product));
+                mockMvc.perform(get("/api/products/{id}", id)
+                                .principal(() -> "owner@example.com"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.id").value(id.toString()))
+                                .andExpect(jsonPath("$.name").value("LicenseHub Desktop"));
+        }
 
-        mockMvc.perform(get("/api/products/{id}", id))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(id.toString()))
-                .andExpect(jsonPath("$.name").value("LicenseHub Desktop"));
-    }
+        @Test
+        void findByIdReturns404WhenProductDoesNotExist() throws Exception {
+                UUID id = UUID.fromString("7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
 
-    @Test
-    void findByIdReturns404WhenProductDoesNotExist() throws Exception {
-        UUID id = UUID.fromString("7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
+                when(productService.findById(
+                                id,
+                                "owner@example.com"))
+                                .thenThrow(new ProductNotFoundException(id));
 
-        given(productService.findById(id))
-                .willThrow(new ProductNotFoundException(
-                        id));
+                mockMvc.perform(get("/api/products/{id}", id).principal(() -> "owner@example.com"))
+                                .andExpect(status().isNotFound())
+                                .andExpect(content().contentTypeCompatibleWith(
+                                                MediaType.APPLICATION_PROBLEM_JSON))
+                                .andExpect(jsonPath("$.title").value("Product not found"))
+                                .andExpect(jsonPath("$.status").value(404))
+                                .andExpect(jsonPath("$.detail")
+                                                .value("Product '" + id + "' was not found"))
+                                .andExpect(jsonPath("$.instance")
+                                                .value("/api/products/" + id));
+        }
 
+        @Test
+        void findAllReturns200AndProducts() throws Exception {
+                UUID id = UUID.fromString("7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
+                Instant timestamp = Instant.parse("2026-09-23T10:00:00Z");
 
-        mockMvc.perform(get("/api/products/{id}", id))
-                .andExpect(status().isNotFound())
-                .andExpect(content().contentTypeCompatibleWith(
-                        MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.title").value("Product not found"))
-                .andExpect(jsonPath("$.status").value(404))
-                .andExpect(jsonPath("$.detail")
-                        .value("Product '" + id + "' was not found"))
-                .andExpect(jsonPath("$.instance")
-                        .value("/api/products/" + id));
-    }
+                Product product = mock(Product.class);
+                when(product.getId()).thenReturn(id);
+                when(product.getName()).thenReturn("LicenseHub Desktop");
+                when(product.getDescription()).thenReturn("Desktop product");
+                when(product.getCreatedAt()).thenReturn(timestamp);
+                when(product.getUpdatedAt()).thenReturn(timestamp);
 
-    @Test
-    void findAllReturns200AndProducts() throws Exception {
-        UUID id = UUID.fromString("7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
-        Instant timestamp = Instant.parse("2026-09-23T10:00:00Z");
+                when(productService.findAll(
+                                "owner@example.com"))
+                                .thenReturn(List.of(product));
 
-        Product product = mock(Product.class);
-        given(product.getId()).willReturn(id);
-        given(product.getName()).willReturn("LicenseHub Desktop");
-        given(product.getDescription()).willReturn("Desktop product");
-        given(product.getCreatedAt()).willReturn(timestamp);
-        given(product.getUpdatedAt()).willReturn(timestamp);
-
-        given(productService.findAll())
-                .willReturn(List.of(product));
-
-        mockMvc.perform(get("/api/products"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].id").value(id.toString()))
-                .andExpect(jsonPath("$[0].name").value("LicenseHub Desktop"));
-    }
+                mockMvc.perform(get("/api/products")
+                                .principal(() -> "owner@example.com"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.length()").value(1))
+                                .andExpect(jsonPath("$[0].id").value(id.toString()))
+                                .andExpect(jsonPath("$[0].name").value("LicenseHub Desktop"));
+        }
 }

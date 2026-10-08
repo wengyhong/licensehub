@@ -18,6 +18,7 @@ import com.weng.licensehub.license.domain.License;
 import com.weng.licensehub.license.persistence.LicenseRepository;
 import com.weng.licensehub.product.domain.Product;
 import com.weng.licensehub.shared.security.Sha256Hasher;
+import com.weng.licensehub.user.domain.UserAccount;
 
 @ExtendWith(MockitoExtension.class)
 class LicenseKeyVerifierTest {
@@ -40,13 +41,15 @@ class LicenseKeyVerifierTest {
 
         @Test
         void returnsLicenseWhenKeyIsValid() {
+                UserAccount owner = new UserAccount("owner@example.com", "test-password-hash");
 
+                Product product = new Product(owner, "Test Product", null);
                 String keyId = "0123456789ABCDEF";
                 String secret = "A".repeat(43);
                 String fullKey = "LH_" + keyId + "_" + secret;
 
                 License license = new License(
-                                new Product("Product", null),
+                                product,
                                 keyId,
                                 hasher.hash(secret),
                                 "customer@example.com",
@@ -86,12 +89,16 @@ class LicenseKeyVerifierTest {
 
         @Test
         void rejectsIncorrectSecret() {
+
+                UserAccount owner = new UserAccount("owner@example.com", "test-password-hash");
+
+                Product product = new Product(owner, "Test Product", null);
                 String keyId = "0123456789ABCDEF";
                 String correctSecret = "A".repeat(43);
                 String incorrectSecret = "B".repeat(43);
 
                 License license = new License(
-                                new Product("Product", null),
+                                product,
                                 keyId,
                                 hasher.hash(correctSecret),
                                 "customer@example.com",

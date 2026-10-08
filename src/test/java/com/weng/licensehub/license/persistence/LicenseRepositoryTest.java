@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -18,6 +19,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import com.weng.licensehub.license.domain.License;
 import com.weng.licensehub.product.domain.Product;
 import com.weng.licensehub.product.persistence.ProductRepository;
+import com.weng.licensehub.user.domain.UserAccount;
+import com.weng.licensehub.user.persistence.UserAccountRepository;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
@@ -38,12 +41,23 @@ class LicenseRepositoryTest {
         private LicenseRepository licenseRepository;
 
         @Autowired
+        private UserAccountRepository userAccountRepository;
+
+        @Autowired
         private EntityManager entityManager;
+
+        private UserAccount owner;
+
+        @BeforeEach
+        void setUp() {
+                owner = userAccountRepository.save(
+                                new UserAccount("owner@example.com", "test-password-hash"));
+        }
 
         @Test
         void savesAndLoadsLicenseWithItsProduct() {
                 Product product = productRepository.save(
-                                new Product("LicenseHub", "Test product"));
+                                new Product(owner, "LicenseHub", "Test product"));
 
                 License license = new License(
                                 product,
@@ -71,10 +85,10 @@ class LicenseRepositoryTest {
         @Test
         void findsLicensesForProductNewestFirst() {
                 Product targetProduct = productRepository.save(
-                                new Product("Target product", null));
+                                new Product(owner, "Target product", null));
 
                 Product otherProduct = productRepository.save(
-                                new Product("Other product", null));
+                                new Product(owner, "Other product", null));
 
                 License olderLicense = licenseRepository.saveAndFlush(
                                 new License(
@@ -120,7 +134,7 @@ class LicenseRepositoryTest {
         void findsLicenseByKeyId() {
                 // Arrange: save a product and a license with a known keyId
                 Product targetProduct = productRepository.save(
-                                new Product("Target product", null));
+                                new Product(owner, "Target product", null));
 
                 String keyId = "0123456789ABCDEF";
 
@@ -151,7 +165,7 @@ class LicenseRepositoryTest {
         @Test
         void findsLicenseWithPessimisticWriteLock() {
                 Product product = productRepository.save(
-                                new Product("Product", null));
+                                new Product(owner, "Product", null));
 
                 License saved = licenseRepository.saveAndFlush(
                                 new License(

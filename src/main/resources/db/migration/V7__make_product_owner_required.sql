@@ -1,0 +1,2 @@
+ALTER TABLE products
+    ALTER COLUMN owner_id SET NOT NULL;

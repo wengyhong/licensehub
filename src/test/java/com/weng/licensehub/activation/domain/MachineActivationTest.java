@@ -5,91 +5,103 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import com.weng.licensehub.license.domain.License;
 import com.weng.licensehub.product.domain.Product;
+import com.weng.licensehub.user.domain.UserAccount;
+import com.weng.licensehub.user.persistence.UserAccountRepository;
 
 class MachineActivationTest {
 
-    @Test
-    void markSeenAdvancesLastSeenTime() {
-        Product product = new Product("Product", null);
+        @Test
+        void markSeenAdvancesLastSeenTime() {
 
-        License license = new License(
-                product,
-                "0123456789ABCDEF",
-                "a".repeat(64),
-                "customer@example.com",
-                1,
-                null);
+                UserAccount owner = new UserAccount("owner@example.com", "test-password-hash");
 
-        MachineActivation activation = new MachineActivation(
-                license,
-                "b".repeat(64),
-                "Development laptop");
+                Product product = new Product(owner, "Test Product", null);
 
-        activation.prePersist();
+                License license = new License(
+                                product,
+                                "0123456789ABCDEF",
+                                "a".repeat(64),
+                                "customer@example.com",
+                                1,
+                                null);
 
-        Instant later = activation.getLastSeenAt().plusSeconds(60);
+                MachineActivation activation = new MachineActivation(
+                                license,
+                                "b".repeat(64),
+                                "Development laptop");
 
-        activation.markSeen(later);
+                activation.prePersist();
 
-        assertThat(activation.isActive()).isTrue();
-        assertThat(activation.getLastSeenAt())
-                .isEqualTo(later);
-    }
+                Instant later = activation.getLastSeenAt().plusSeconds(60);
 
-    @Test
-    void deactivatedActivationIsNoLongerActive() {
-        Product product = new Product("Product", null);
+                activation.markSeen(later);
 
-        License license = new License(
-                product,
-                "0123456789ABCDEF",
-                "a".repeat(64),
-                "customer@example.com",
-                1,
-                null);
+                assertThat(activation.isActive()).isTrue();
+                assertThat(activation.getLastSeenAt())
+                                .isEqualTo(later);
+        }
 
-        MachineActivation activation = new MachineActivation(
-                license,
-                "b".repeat(64),
-                "Development laptop");
+        @Test
+        void deactivatedActivationIsNoLongerActive() {
+                UserAccount owner = new UserAccount("owner@example.com", "test-password-hash");
 
-        activation.prePersist();
+                Product product = new Product(owner, "Test Product", null);
 
-        Instant deactivatedAt = activation.getLastSeenAt().plusSeconds(60);
+                License license = new License(
+                                product,
+                                "0123456789ABCDEF",
+                                "a".repeat(64),
+                                "customer@example.com",
+                                1,
+                                null);
 
-        activation.deactivate(deactivatedAt);
+                MachineActivation activation = new MachineActivation(
+                                license,
+                                "b".repeat(64),
+                                "Development laptop");
 
-        assertThat(activation.isActive()).isFalse();
-        assertThat(activation.getDeactivatedAt())
-                .isEqualTo(deactivatedAt);
-    }
+                activation.prePersist();
 
-    @Test
-    void cannotMarkDeactivatedActivationAsSeen() {
-        Product product = new Product("Product", null);
+                Instant deactivatedAt = activation.getLastSeenAt().plusSeconds(60);
 
-        License license = new License(
-                product,
-                "0123456789ABCDEF",
-                "a".repeat(64),
-                "customer@example.com",
-                1,
-                null);
+                activation.deactivate(deactivatedAt);
 
-        MachineActivation activation = new MachineActivation(
-                license,
-                "b".repeat(64),
-                "Development laptop");
+                assertThat(activation.isActive()).isFalse();
+                assertThat(activation.getDeactivatedAt())
+                                .isEqualTo(deactivatedAt);
+        }
 
-        activation.prePersist();
-        activation.deactivate(Instant.now());
+        @Test
+        void cannotMarkDeactivatedActivationAsSeen() {
 
-        assertThatThrownBy(
-                () -> activation.markSeen(Instant.now()))
-                .isInstanceOf(IllegalStateException.class);
-    }
+                UserAccount owner = new UserAccount("owner@example.com", "test-password-hash");
+
+                Product product = new Product(owner, "Test Product", null);
+
+                License license = new License(
+                                product,
+                                "0123456789ABCDEF",
+                                "a".repeat(64),
+                                "customer@example.com",
+                                1,
+                                null);
+
+                MachineActivation activation = new MachineActivation(
+                                license,
+                                "b".repeat(64),
+                                "Development laptop");
+
+                activation.prePersist();
+                activation.deactivate(Instant.now());
+
+                assertThatThrownBy(
+                                () -> activation.markSeen(Instant.now()))
+                                .isInstanceOf(IllegalStateException.class);
+        }
 }

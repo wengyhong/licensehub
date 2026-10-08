@@ -18,11 +18,16 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import com.weng.licensehub.user.domain.UserAccount;
+import com.weng.licensehub.user.persistence.UserAccountRepository;
+import org.junit.jupiter.api.BeforeEach;
+
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers
 class SecurityConfigurationIntegrationTest {
-
+        @Autowired
+        private UserAccountRepository userAccountRepository;
         @Container
         @ServiceConnection
         static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18-alpine");
@@ -68,6 +73,7 @@ class SecurityConfigurationIntegrationTest {
         @Test
         void authenticatedPostWithCsrfIsAllowed()
                         throws Exception {
+
 
                 mockMvc.perform(post("/api/products")
                                 .with(user("manager@example.com")
@@ -128,5 +134,20 @@ class SecurityConfigurationIntegrationTest {
 
                 mockMvc.perform(get("/api/auth/me"))
                                 .andExpect(status().isUnauthorized());
+        }
+
+        @BeforeEach
+        void ensureManagerExists() {
+
+                if (userAccountRepository
+                                .findByEmailIgnoreCase(
+                                                "manager@example.com")
+                                .isEmpty()) {
+
+                        userAccountRepository.save(
+                                        new UserAccount(
+                                                        "manager@example.com",
+                                                        "{noop}unused"));
+                }
         }
 }

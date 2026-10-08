@@ -1,4 +1,5 @@
 package com.weng.licensehub.product.api;
+import java.security.Principal;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,23 +31,23 @@ public class ProductController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    ProductResponse create(@Valid @RequestBody CreateProductRequest request)
+    ProductResponse create(@Valid @RequestBody CreateProductRequest request, Principal principal)
     {
-        Product product = productService.create(request.name(), request.description());
+        Product product = productService.createForOwner(principal.getName(), request.name(), request.description());
         return toResponse(product);
     }
 
     @GetMapping
-    List<ProductResponse> findAll()
+    List<ProductResponse> findAll(Principal principal)
     {
-        List<Product> listOfProducts = productService.findAll();
-       return listOfProducts.stream().map(this::toResponse).toList();
+
+       return productService.findAll(principal.getName()).stream().map(this::toResponse).toList();
     }
 
     @GetMapping("/{id}")
-    ProductResponse findById(@PathVariable UUID id)
+    ProductResponse findById(@PathVariable UUID id, Principal principal)
     {
-       var response = productService.findById(id);
+       var response = productService.findById(id, principal.getName());
 
        return toResponse(response);
     }

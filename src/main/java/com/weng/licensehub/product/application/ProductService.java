@@ -9,39 +9,61 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.weng.licensehub.product.domain.Product;
 import com.weng.licensehub.product.persistence.ProductRepository;
-
+import com.weng.licensehub.user.domain.UserAccount;
+import com.weng.licensehub.user.persistence.UserAccountRepository;
 
 @Service
 public class ProductService {
 
     private final ProductRepository repository;
-    public ProductService(ProductRepository repo){
+    private final UserAccountRepository userAccountRepository;
+
+    public ProductService(ProductRepository repo,
+            UserAccountRepository userAccountRepository) {
 
         this.repository = repo;
+        this.userAccountRepository = userAccountRepository;
     }
 
+
     @Transactional
-    public Product create(String name, String description)
-    {
-        Product product = new Product(name, description);
+    public Product createForOwner(String email, String name, String description) {
+        UserAccount owner = requireOwner(email);
+        Product product = new Product(owner, name, description);
+
         repository.save(product);
+
         return product;
     }
 
-    @Transactional(readOnly = true)
-    public List<Product> findAll()
-    {
-        return repository.findAll();
+    private UserAccount requireOwner(String email) {
+        return userAccountRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new IllegalStateException("Authenticated user account was not found"));
+
     }
 
     @Transactional(readOnly = true)
-    public Product findById(UUID id)
-    {
-        return repository.findById(id).orElseThrow(()-> new ProductNotFoundException(id));
+    public List<Product> findAll(String ownerEmail) {
+
+        UserAccount owner = requireOwner(ownerEmail);
+
+        return repository
+                .findAllByOwner_IdOrderByCreatedAtDesc(
+                        owner.getId());
     }
 
+    @Transactional(readOnly = true)
+    public Product findById(
+            UUID productId,
+            String ownerEmail) {
 
+        UserAccount owner = requireOwner(ownerEmail);
 
-
+        return repository
+                .findByIdAndOwner_Id(
+                        productId,
+                        owner.getId())
+                .orElseThrow(() -> new ProductNotFoundException(productId));
+    }
 
 }

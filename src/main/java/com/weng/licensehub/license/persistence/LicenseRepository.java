@@ -17,6 +17,8 @@ public interface LicenseRepository extends JpaRepository<License, UUID> {
     List<License> findAllByProduct_IdOrderByCreatedAtDesc(UUID productId);
     Optional<License> findByKeyId(String keyId);
 
+    Optional<License> findByIdAndProduct_Owner_Id(UUID productId, UUID ownerId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
 @Query("""
         select license

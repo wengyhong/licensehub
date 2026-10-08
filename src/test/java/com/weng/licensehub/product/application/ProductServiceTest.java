@@ -9,53 +9,115 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.Mockito.when;
+
+import com.weng.licensehub.user.domain.UserAccount;
+import com.weng.licensehub.user.persistence.UserAccountRepository;
+
 public class ProductServiceTest {
 
-    private ProductRepository repository;
-    private ProductService service;
+        private ProductRepository repository;
+        private ProductService service;
+        private UserAccountRepository userAccountRepository;
 
-    @BeforeEach
-    void setUp() {
-        repository = mock(ProductRepository.class);
-        service = new ProductService(repository);
-    }
+        @BeforeEach
+        void setUp() {
+                repository = mock(ProductRepository.class);
+                userAccountRepository = mock(UserAccountRepository.class);
 
-    @Test
-    void createSavesAndReturnsProduct() {
-        given(repository.save(any(Product.class)))
-                .willAnswer(invocation -> invocation.getArgument(0));
+                service = new ProductService(
+                                repository,
+                                userAccountRepository);
+        }
 
-        Product result = service.create("LicenseHub Desktop", "Desktop product");
 
-        assertEquals("LicenseHub Desktop", result.getName());
-        assertEquals("Desktop product", result.getDescription());
+        @Test
+        void createForOwnerAssignsOwnerAndSavesProduct() {
 
-        verify(repository).save(result);
+                UserAccount owner = mock(UserAccount.class);
 
-    }
+                when(userAccountRepository.findByEmailIgnoreCase(
+                                "owner@example.com"))
+                                .thenReturn(Optional.of(owner));
 
-    @Test
-    void getByIdThrowsWhenProductDoesNotExist() {
-        UUID id = UUID.fromString(
-                "7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
+                when(repository.save(any(Product.class)))
+                                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        given(repository.findById(id))
-                .willReturn(Optional.empty());
+                Product result = service.createForOwner(
+                                "owner@example.com",
+                                "LicenseHub Desktop",
+                                "Desktop product");
 
-        ProductNotFoundException exception = assertThrows(
-                ProductNotFoundException.class,
-                () -> service.findById(id));
+                assertSame(owner, result.getOwner());
+                assertEquals(
+                                "LicenseHub Desktop",
+                                result.getName());
 
-        assertEquals(
-                "Product '" + id + "' was not found",
-                exception.getMessage());
-    }
+                verify(userAccountRepository)
+                                .findByEmailIgnoreCase(
+                                                "owner@example.com");
+
+                verify(repository).save(result);
+        }
+
+        @Test
+        void findAllReturnsOnlyOwnersProducts() {
+
+                UUID ownerId = UUID.randomUUID();
+
+                UserAccount owner = mock(UserAccount.class);
+                Product product = mock(Product.class);
+
+                when(owner.getId()).thenReturn(ownerId);
+
+                when(userAccountRepository.findByEmailIgnoreCase(
+                                "owner@example.com"))
+                                .thenReturn(Optional.of(owner));
+
+                when(repository
+                                .findAllByOwner_IdOrderByCreatedAtDesc(ownerId))
+                                .thenReturn(List.of(product));
+
+                List<Product> result = service.findAll("owner@example.com");
+
+                assertEquals(List.of(product), result);
+
+                verify(repository)
+                                .findAllByOwner_IdOrderByCreatedAtDesc(ownerId);
+        }
+
+        @Test
+        void findByIdThrowsWhenProductIsNotOwned() {
+
+                UUID ownerId = UUID.randomUUID();
+                UUID productId = UUID.randomUUID();
+
+                UserAccount owner = mock(UserAccount.class);
+
+                when(owner.getId()).thenReturn(ownerId);
+
+                when(userAccountRepository.findByEmailIgnoreCase(
+                                "owner@example.com"))
+                                .thenReturn(Optional.of(owner));
+
+                when(repository.findByIdAndOwner_Id(
+                                productId,
+                                ownerId))
+                                .thenReturn(Optional.empty());
+
+                assertThrows(
+                                ProductNotFoundException.class,
+                                () -> service.findById(
+                                                productId,
+                                                "owner@example.com"));
+        }
 }
