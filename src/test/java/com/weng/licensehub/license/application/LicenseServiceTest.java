@@ -28,215 +28,257 @@ import com.weng.licensehub.user.persistence.UserAccountRepository;
 
 class LicenseServiceTest {
 
-    private static final String OWNER_EMAIL =
-            "owner@example.com";
+        private static final String OWNER_EMAIL = "owner@example.com";
 
-    private LicenseRepository licenseRepository;
-    private ProductRepository productRepository;
-    private LicenseKeyGenerator licenseKeyGenerator;
-    private UserAccountRepository userAccountRepository;
-    private LicenseService service;
+        private LicenseRepository licenseRepository;
+        private ProductRepository productRepository;
+        private LicenseKeyGenerator licenseKeyGenerator;
+        private UserAccountRepository userAccountRepository;
+        private LicenseService service;
 
-    @BeforeEach
-    void setUp() {
-        licenseRepository = mock(LicenseRepository.class);
-        productRepository = mock(ProductRepository.class);
-        licenseKeyGenerator = mock(LicenseKeyGenerator.class);
-        userAccountRepository =
-                mock(UserAccountRepository.class);
+        @BeforeEach
+        void setUp() {
+                licenseRepository = mock(LicenseRepository.class);
+                productRepository = mock(ProductRepository.class);
+                licenseKeyGenerator = mock(LicenseKeyGenerator.class);
+                userAccountRepository = mock(UserAccountRepository.class);
 
-        service = new LicenseService(
-                licenseRepository,
-                productRepository,
-                licenseKeyGenerator,
-                userAccountRepository);
-    }
+                service = new LicenseService(
+                                licenseRepository,
+                                productRepository,
+                                licenseKeyGenerator,
+                                userAccountRepository);
+        }
 
-    @Test
-    void issueForOwnerSavesHashAndReturnsFullKey() {
-        UUID ownerId = stubOwner();
-        UUID productId = UUID.randomUUID();
-        Product product = mock(Product.class);
-        Instant expiresAt =
-                Instant.parse("2027-09-23T10:00:00Z");
+        @Test
+        void issueForOwnerSavesHashAndReturnsFullKey() {
+                UUID ownerId = stubOwner();
+                UUID productId = UUID.randomUUID();
+                Product product = mock(Product.class);
+                Instant expiresAt = Instant.parse("2027-09-23T10:00:00Z");
 
-        String keyId = "ABCDEF0123456789";
-        String keyHash = "a".repeat(64);
-        String fullKey = "LH_" + keyId + "_secret";
+                String keyId = "ABCDEF0123456789";
+                String keyHash = "a".repeat(64);
+                String fullKey = "LH_" + keyId + "_secret";
 
-        GeneratedLicenseKey generatedKey =
-                new GeneratedLicenseKey(
-                        keyId,
-                        keyHash,
-                        fullKey);
+                GeneratedLicenseKey generatedKey = new GeneratedLicenseKey(
+                                keyId,
+                                keyHash,
+                                fullKey);
 
-        when(productRepository.findByIdAndOwner_Id(
-                productId,
-                ownerId))
-                .thenReturn(Optional.of(product));
+                when(productRepository.findByIdAndOwner_Id(
+                                productId,
+                                ownerId))
+                                .thenReturn(Optional.of(product));
 
-        when(licenseKeyGenerator.generate())
-                .thenReturn(generatedKey);
+                when(licenseKeyGenerator.generate())
+                                .thenReturn(generatedKey);
 
-        when(licenseRepository.save(any(License.class)))
-                .thenAnswer(invocation ->
-                        invocation.getArgument(0));
+                when(licenseRepository.save(any(License.class)))
+                                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        IssuedLicense result = service.issueForOwner(
-                productId,
-                OWNER_EMAIL,
-                "  customer@example.com  ",
-                2,
-                expiresAt);
+                IssuedLicense result = service.issueForOwner(
+                                productId,
+                                OWNER_EMAIL,
+                                "  customer@example.com  ",
+                                2,
+                                expiresAt);
 
-        License saved = result.license();
+                License saved = result.license();
 
-        assertSame(product, saved.getProduct());
-        assertEquals(keyId, saved.getKeyId());
-        assertEquals(keyHash, saved.getKeyHash());
-        assertEquals(
-                "customer@example.com",
-                saved.getCustomerEmail());
-        assertEquals(2, saved.getMaxActivations());
-        assertEquals(expiresAt, saved.getExpiresAt());
-        assertEquals(
-                LicenseStatus.ACTIVE,
-                saved.getStatus());
-        assertEquals(fullKey, result.fullKey());
+                assertSame(product, saved.getProduct());
+                assertEquals(keyId, saved.getKeyId());
+                assertEquals(keyHash, saved.getKeyHash());
+                assertEquals(
+                                "customer@example.com",
+                                saved.getCustomerEmail());
+                assertEquals(2, saved.getMaxActivations());
+                assertEquals(expiresAt, saved.getExpiresAt());
+                assertEquals(
+                                LicenseStatus.ACTIVE,
+                                saved.getStatus());
+                assertEquals(fullKey, result.fullKey());
 
-        verify(licenseRepository).save(saved);
-    }
+                verify(licenseRepository).save(saved);
+        }
 
-    @Test
-    void issueForOwnerThrowsWhenProductIsNotOwned() {
-        UUID ownerId = stubOwner();
-        UUID productId = UUID.randomUUID();
+        @Test
+        void issueForOwnerThrowsWhenProductIsNotOwned() {
+                UUID ownerId = stubOwner();
+                UUID productId = UUID.randomUUID();
 
-        when(productRepository.findByIdAndOwner_Id(
-                productId,
-                ownerId))
-                .thenReturn(Optional.empty());
+                when(productRepository.findByIdAndOwner_Id(
+                                productId,
+                                ownerId))
+                                .thenReturn(Optional.empty());
 
-        ProductNotFoundException exception = assertThrows(
-                ProductNotFoundException.class,
-                () -> service.issueForOwner(
-                        productId,
-                        OWNER_EMAIL,
-                        "customer@example.com",
-                        2,
-                        null));
+                ProductNotFoundException exception = assertThrows(
+                                ProductNotFoundException.class,
+                                () -> service.issueForOwner(
+                                                productId,
+                                                OWNER_EMAIL,
+                                                "customer@example.com",
+                                                2,
+                                                null));
 
-        assertEquals(
-                "Product '" + productId + "' was not found",
-                exception.getMessage());
+                assertEquals(
+                                "Product '" + productId + "' was not found",
+                                exception.getMessage());
 
-        verifyNoInteractions(
-                licenseKeyGenerator,
-                licenseRepository);
-    }
+                verifyNoInteractions(
+                                licenseKeyGenerator,
+                                licenseRepository);
+        }
 
-    @Test
-    void getByIdForOwnerReturnsRepositoryResult() {
-        UUID ownerId = stubOwner();
-        UUID licenseId = UUID.randomUUID();
-        License license = mock(License.class);
+        @Test
+        void ownerRevokeLicense() {
+                UUID licenseId = UUID.randomUUID();
+                UUID ownerId = UUID.randomUUID();
+                String ownerEmail = "owner@example.com";
 
-        when(licenseRepository.findByIdAndProduct_Owner_Id(
-                licenseId,
-                ownerId))
-                .thenReturn(Optional.of(license));
+                UserAccount owner = mock(UserAccount.class);
+                License license = mock(License.class);
 
-        License result = service.getByIdForOwner(
-                licenseId,
-                OWNER_EMAIL);
+                when(userAccountRepository.findByEmailIgnoreCase(ownerEmail))
+                                .thenReturn(Optional.of(owner));
 
-        assertSame(license, result);
-    }
+                when(owner.getId()).thenReturn(ownerId);
 
-    @Test
-    void getByIdForOwnerThrowsWhenLicenseIsNotOwned() {
-        UUID ownerId = stubOwner();
-        UUID licenseId = UUID.randomUUID();
+                when(licenseRepository.findByIdAndProduct_Owner_Id(
+                                licenseId,
+                                ownerId))
+                                .thenReturn(Optional.of(license));
+        }
 
-        when(licenseRepository.findByIdAndProduct_Owner_Id(
-                licenseId,
-                ownerId))
-                .thenReturn(Optional.empty());
+        @Test
+        void anotherOwnerRevokeLicense() {
+                UUID licenseId = UUID.randomUUID();
+                UUID ownerId = UUID.randomUUID();
+                String ownerEmail = "owner@example.com";
 
-        LicenseNotFoundException exception = assertThrows(
-                LicenseNotFoundException.class,
-                () -> service.getByIdForOwner(
-                        licenseId,
-                        OWNER_EMAIL));
+                UserAccount owner = mock(UserAccount.class);
+                License license = mock(License.class);
 
-        assertEquals(
-                "License '" + licenseId + "' not found",
-                exception.getMessage());
-    }
+                when(userAccountRepository.findByEmailIgnoreCase(ownerEmail))
+                                .thenReturn(Optional.of(owner));
 
-    @Test
-    void findAllByProductIdForOwnerReturnsRepositoryResults() {
-        UUID ownerId = stubOwner();
-        UUID productId = UUID.randomUUID();
-        Product product = mock(Product.class);
-        License license = mock(License.class);
-        List<License> expected = List.of(license);
+                when(owner.getId()).thenReturn(ownerId);
+                when(licenseRepository.findByIdAndProduct_Owner_Id(
+                                licenseId,
+                                ownerId))
+                                .thenReturn(Optional.empty());
 
-        when(productRepository.findByIdAndOwner_Id(
-                productId,
-                ownerId))
-                .thenReturn(Optional.of(product));
+                assertThrows(
+                                LicenseNotFoundException.class,
+                                () -> service.revokeForOwner(
+                                                licenseId,
+                                                ownerEmail));
 
-        when(licenseRepository
-                .findAllByProduct_IdOrderByCreatedAtDesc(
-                        productId))
-                .thenReturn(expected);
+                verifyNoInteractions(license);
+        }
 
-        List<License> result =
-                service.findAllByProductIdForOwner(
-                        productId,
-                        OWNER_EMAIL);
+        @Test
+        void getByIdForOwnerReturnsRepositoryResult() {
+                UUID ownerId = stubOwner();
+                UUID licenseId = UUID.randomUUID();
+                License license = mock(License.class);
 
-        assertEquals(expected, result);
+                when(licenseRepository.findByIdAndProduct_Owner_Id(
+                                licenseId,
+                                ownerId))
+                                .thenReturn(Optional.of(license));
 
-        verify(licenseRepository)
-                .findAllByProduct_IdOrderByCreatedAtDesc(
-                        productId);
-    }
+                License result = service.getByIdForOwner(
+                                licenseId,
+                                OWNER_EMAIL);
 
-    @Test
-    void findAllByProductIdForOwnerThrowsWhenProductIsNotOwned() {
-        UUID ownerId = stubOwner();
-        UUID productId = UUID.randomUUID();
+                assertSame(license, result);
+        }
 
-        when(productRepository.findByIdAndOwner_Id(
-                productId,
-                ownerId))
-                .thenReturn(Optional.empty());
 
-        ProductNotFoundException exception = assertThrows(
-                ProductNotFoundException.class,
-                () -> service.findAllByProductIdForOwner(
-                        productId,
-                        OWNER_EMAIL));
+        @Test
+        void getByIdForOwnerThrowsWhenLicenseIsNotOwned() {
+                UUID ownerId = stubOwner();
+                UUID licenseId = UUID.randomUUID();
 
-        assertEquals(
-                "Product '" + productId + "' was not found",
-                exception.getMessage());
+                when(licenseRepository.findByIdAndProduct_Owner_Id(
+                                licenseId,
+                                ownerId))
+                                .thenReturn(Optional.empty());
 
-        verifyNoInteractions(licenseRepository);
-    }
+                LicenseNotFoundException exception = assertThrows(
+                                LicenseNotFoundException.class,
+                                () -> service.getByIdForOwner(
+                                                licenseId,
+                                                OWNER_EMAIL));
 
-    private UUID stubOwner() {
-        UUID ownerId = UUID.randomUUID();
-        UserAccount owner = mock(UserAccount.class);
+                assertEquals(
+                                "License '" + licenseId + "' not found",
+                                exception.getMessage());
+        }
 
-        when(owner.getId()).thenReturn(ownerId);
+        @Test
+        void findAllByProductIdForOwnerReturnsRepositoryResults() {
+                UUID ownerId = stubOwner();
+                UUID productId = UUID.randomUUID();
+                Product product = mock(Product.class);
+                License license = mock(License.class);
+                List<License> expected = List.of(license);
 
-        when(userAccountRepository.findByEmailIgnoreCase(
-                OWNER_EMAIL))
-                .thenReturn(Optional.of(owner));
+                when(productRepository.findByIdAndOwner_Id(
+                                productId,
+                                ownerId))
+                                .thenReturn(Optional.of(product));
 
-        return ownerId;
-    }
+                when(licenseRepository
+                                .findAllByProduct_IdOrderByCreatedAtDesc(
+                                                productId))
+                                .thenReturn(expected);
+
+                List<License> result = service.findAllByProductIdForOwner(
+                                productId,
+                                OWNER_EMAIL);
+
+                assertEquals(expected, result);
+
+                verify(licenseRepository)
+                                .findAllByProduct_IdOrderByCreatedAtDesc(
+                                                productId);
+        }
+
+        @Test
+        void findAllByProductIdForOwnerThrowsWhenProductIsNotOwned() {
+                UUID ownerId = stubOwner();
+                UUID productId = UUID.randomUUID();
+
+                when(productRepository.findByIdAndOwner_Id(
+                                productId,
+                                ownerId))
+                                .thenReturn(Optional.empty());
+
+                ProductNotFoundException exception = assertThrows(
+                                ProductNotFoundException.class,
+                                () -> service.findAllByProductIdForOwner(
+                                                productId,
+                                                OWNER_EMAIL));
+
+                assertEquals(
+                                "Product '" + productId + "' was not found",
+                                exception.getMessage());
+
+                verifyNoInteractions(licenseRepository);
+        }
+
+        private UUID stubOwner() {
+                UUID ownerId = UUID.randomUUID();
+                UserAccount owner = mock(UserAccount.class);
+
+                when(owner.getId()).thenReturn(ownerId);
+
+                when(userAccountRepository.findByEmailIgnoreCase(
+                                OWNER_EMAIL))
+                                .thenReturn(Optional.of(owner));
+
+                return ownerId;
+        }
 }

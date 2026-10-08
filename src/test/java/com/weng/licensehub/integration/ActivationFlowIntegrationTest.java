@@ -30,8 +30,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 @AutoConfigureMockMvc
 @Testcontainers
 class ActivationFlowIntegrationTest {
-@Autowired
-private UserAccountRepository userAccountRepository;
+        @Autowired
+        private UserAccountRepository userAccountRepository;
         @Container
         @ServiceConnection
         static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18-alpine");
@@ -42,17 +42,22 @@ private UserAccountRepository userAccountRepository;
         @Autowired
         private ObjectMapper objectMapper;
 
+        private record IssuedLicenseDetails(
+                        String licenseId,
+                        String licenseKey) {
+        }
+
         @Test
         void completesActivationLifecycle() throws Exception {
 
                 userAccountRepository.save(
-        new UserAccount(
-                "manager@example.com",
-                "{noop}unused"));
+                                new UserAccount(
+                                                "manager@example.com",
+                                                "{noop}unused"));
                 String productId = createProduct();
 
-                String licenseKey = issueLicense(productId);
-
+                IssuedLicenseDetails issued = issueLicense(productId);
+                String licenseKey = issued.licenseKey();
                 String firstActivationId = activateMachine(
                                 licenseKey,
                                 "integration-machine-001",
@@ -77,6 +82,24 @@ private UserAccountRepository userAccountRepository;
 
                 assertThat(reactivatedId)
                                 .isNotEqualTo(firstActivationId);
+
+                mockMvc.perform(post(
+                                "/api/licenses/{licenseId}/revoke",
+                                issued.licenseId())
+                                .with(user("manager@example.com").roles("USER"))
+                                .with(csrf()))
+                                .andExpect(status().isNoContent());
+
+                String requestBody = objectMapper.writeValueAsString(
+                                Map.of(
+                                                "licenseKey", licenseKey,
+                                                "machineFingerprint", "blocked-machine",
+                                                "machineName", "Blocked laptop"));
+
+                mockMvc.perform(post("/api/activations")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody))
+                                .andExpect(status().isForbidden());
         }
 
         private String createProduct() throws Exception {
@@ -108,7 +131,7 @@ private UserAccountRepository userAccountRepository;
                 return productId;
         }
 
-        private String issueLicense(String productId)
+        private IssuedLicenseDetails issueLicense(String productId)
                         throws Exception {
 
                 String requestBody = objectMapper.writeValueAsString(
@@ -145,7 +168,10 @@ private UserAccountRepository userAccountRepository;
                                                 .asText())
                                 .isEqualTo(productId);
 
-                return licenseKey;
+                return new IssuedLicenseDetails(
+                                response.get("license").get("id").asText(),
+                                response.get("licenseKey").asText());
+
         }
 
         private String activateMachine(

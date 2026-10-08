@@ -1,6 +1,8 @@
 package com.weng.licensehub.license.api;
 
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -25,6 +27,7 @@ import com.weng.licensehub.license.domain.LicenseStatus;
 import com.weng.licensehub.product.domain.Product;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 import java.util.List;
 
@@ -65,7 +68,6 @@ class LicenseControllerTest {
                 when(license.getExpiresAt()).thenReturn(expires);
                 when(license.getCreatedAt()).thenReturn(timestamp);
                 when(license.getUpdatedAt()).thenReturn(timestamp);
-
 
                 when(licenseService.issueForOwner(
                                 productId,
@@ -181,8 +183,6 @@ class LicenseControllerTest {
                 when(license.getStatus()).thenReturn(LicenseStatus.ACTIVE);
                 when(license.getMaxActivations()).thenReturn(2);
 
-
-
                 when(licenseService.findAllByProductIdForOwner(
                                 productId,
                                 "owner@example.com"))
@@ -242,6 +242,40 @@ class LicenseControllerTest {
                                 .andExpect(status().isBadRequest());
 
                 verifyNoInteractions(licenseService);
+        }
+
+        @Test
+        void revokeReturns204() throws Exception {
+                UUID licenseId = UUID.randomUUID();
+
+                mockMvc.perform(post(
+                                "/api/licenses/{licenseId}/revoke",
+                                licenseId)
+                                .principal(() -> "owner@example.com")
+                                .with(csrf()))
+                                .andExpect(status().isNoContent());
+
+                verify(licenseService).revokeForOwner(
+                                licenseId,
+                                "owner@example.com");
+        }
+
+        @Test
+        void revokeReturns404WhenLicenseDoesNotExist() throws Exception {
+                UUID licenseId = UUID.randomUUID();
+
+                doThrow(new LicenseNotFoundException(licenseId))
+                                .when(licenseService)
+                                .revokeForOwner(
+                                                licenseId,
+                                                "owner@example.com");
+
+                mockMvc.perform(post(
+                                "/api/licenses/{licenseId}/revoke",
+                                licenseId)
+                                .principal(() -> "owner@example.com")
+                                .with(csrf()))
+                                .andExpect(status().isNotFound());
         }
 
 }
