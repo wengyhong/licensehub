@@ -7,6 +7,8 @@ import static org.mockito.Mockito.mock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -38,7 +40,6 @@ public class ProductServiceTest {
                                 repository,
                                 userAccountRepository);
         }
-
 
         @Test
         void createForOwnerAssignsOwnerAndSavesProduct() {
@@ -119,5 +120,63 @@ public class ProductServiceTest {
                                 () -> service.findById(
                                                 productId,
                                                 "owner@example.com"));
+        }
+
+        @Test
+        void updatesProductForOwner() {
+                UUID productId = UUID.randomUUID();
+                UUID ownerId = UUID.randomUUID();
+                String ownerEmail = "owner@example.com";
+
+                UserAccount owner = mock(UserAccount.class);
+                Product product = mock(Product.class);
+
+                when(userAccountRepository.findByEmailIgnoreCase(ownerEmail))
+                                .thenReturn(Optional.of(owner));
+
+                when(owner.getId()).thenReturn(ownerId);
+
+                when(repository.findByIdAndOwner_Id(
+                                productId,
+                                ownerId))
+                                .thenReturn(Optional.of(product));
+
+                Product result = service.updateForOwner(
+                                productId,
+                                ownerEmail,
+                                "Updated Product",
+                                "Updated description");
+
+                assertThat(result).isSameAs(product);
+
+                verify(product).updateDetails(
+                                "Updated Product",
+                                "Updated description");
+        }
+
+        @Test
+        void updateThrowsWhenProductIsNotOwned() {
+                UUID productId = UUID.randomUUID();
+                UUID ownerId = UUID.randomUUID();
+                String ownerEmail = "owner@example.com";
+
+                UserAccount owner = mock(UserAccount.class);
+
+                when(userAccountRepository.findByEmailIgnoreCase(ownerEmail))
+                                .thenReturn(Optional.of(owner));
+
+                when(owner.getId()).thenReturn(ownerId);
+
+                when(repository.findByIdAndOwner_Id(
+                                productId,
+                                ownerId))
+                                .thenReturn(Optional.empty());
+
+                assertThatThrownBy(() -> service.updateForOwner(
+                                productId,
+                                ownerEmail,
+                                "Updated Product",
+                                null))
+                                .isInstanceOf(ProductNotFoundException.class);
         }
 }

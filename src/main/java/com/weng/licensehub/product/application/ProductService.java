@@ -25,7 +25,6 @@ public class ProductService {
         this.userAccountRepository = userAccountRepository;
     }
 
-
     @Transactional
     public Product createForOwner(String email, String name, String description) {
         UserAccount owner = requireOwner(email);
@@ -57,13 +56,34 @@ public class ProductService {
             UUID productId,
             String ownerEmail) {
 
+        return requireOwnedProduct(productId, ownerEmail);
+    }
+
+    @Transactional
+    public Product updateForOwner(
+            UUID productId,
+            String ownerEmail,
+            String name,
+            String description) {
+
+        Product product = requireOwnedProduct(productId, ownerEmail);
+        product.updateDetails(name, description);
+
+        return product;
+    }
+
+    private Product requireOwnedProduct(
+            UUID productId,
+            String ownerEmail) {
+
         UserAccount owner = requireOwner(ownerEmail);
 
         return repository
                 .findByIdAndOwner_Id(
                         productId,
                         owner.getId())
-                .orElseThrow(() -> new ProductNotFoundException(productId));
+                .orElseThrow(
+                        () -> new ProductNotFoundException(productId));
     }
 
 }

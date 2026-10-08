@@ -89,11 +89,26 @@ public class Product {
             String name,
             String description) {
 
-        this.name = name;
-        this.description = description;
-
         this.owner = Objects.requireNonNull(
                 owner,
                 "owner must not be null");
+
+        updateDetails(name, description);
+
+    }
+
+    public void updateDetails(
+            String name,
+            String description) {
+
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException(
+                    "name must not be blank");
+        }
+
+        this.name = name.strip();
+        this.description = description == null
+                ? null
+                : description.strip();
     }
 }

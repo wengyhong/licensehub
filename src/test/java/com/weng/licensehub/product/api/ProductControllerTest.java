@@ -8,7 +8,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.weng.licensehub.product.application.ProductService;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -154,5 +156,66 @@ class ProductControllerTest {
                                 .andExpect(jsonPath("$.length()").value(1))
                                 .andExpect(jsonPath("$[0].id").value(id.toString()))
                                 .andExpect(jsonPath("$[0].name").value("LicenseHub Desktop"));
+        }
+
+        @Test
+        void updateReturns200AndUpdatedProduct() throws Exception {
+                UUID id = UUID.fromString("7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
+                Instant createdAt = Instant.parse("2026-09-23T10:00:00Z");
+                Instant updatedAt = Instant.parse("2026-10-08T10:00:00Z");
+
+                Product product = mock(Product.class);
+                when(product.getId()).thenReturn(id);
+                when(product.getName()).thenReturn("Updated Product");
+                when(product.getDescription()).thenReturn("Updated description");
+                when(product.getCreatedAt()).thenReturn(createdAt);
+                when(product.getUpdatedAt()).thenReturn(updatedAt);
+
+                when(productService.updateForOwner(
+                                id,
+                                "owner@example.com",
+                                "Updated Product",
+                                "Updated description"))
+                                .thenReturn(product);
+
+                mockMvc.perform(put("/api/products/{productId}", id)
+                                .principal(() -> "owner@example.com")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {
+                                                  "name": "Updated Product",
+                                                  "description": "Updated description"
+                                                }
+                                                """))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.id").value(id.toString()))
+                                .andExpect(jsonPath("$.name").value("Updated Product"))
+                                .andExpect(jsonPath("$.description").value("Updated description"))
+                                .andExpect(jsonPath("$.createdAt").value(createdAt.toString()))
+                                .andExpect(jsonPath("$.updatedAt").value(updatedAt.toString()));
+
+                verify(productService).updateForOwner(
+                                id,
+                                "owner@example.com",
+                                "Updated Product",
+                                "Updated description");
+        }
+
+        @Test
+        void updateReturns400WhenNameIsBlank() throws Exception {
+                UUID id = UUID.fromString("7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
+
+                mockMvc.perform(put("/api/products/{productId}", id)
+                                .principal(() -> "owner@example.com")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {
+                                                  "name": " ",
+                                                  "description": "Description"
+                                                }
+                                                """))
+                                .andExpect(status().isBadRequest());
+
+                verifyNoInteractions(productService);
         }
 }

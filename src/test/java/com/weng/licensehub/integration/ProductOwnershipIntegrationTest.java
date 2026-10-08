@@ -26,7 +26,7 @@ import com.weng.licensehub.user.persistence.UserAccountRepository;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
-
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers
@@ -108,4 +108,69 @@ class ProductOwnershipIntegrationTest {
 
         return response.get("id").asText();
     }
+
+    @Test
+void onlyOwnerCanUpdateProduct() throws Exception {
+    String updateOwnerEmail =
+            "update-owner@example.com";
+
+    String otherUserEmail =
+            "update-other@example.com";
+
+    userAccountRepository.save(
+            new UserAccount(
+                    updateOwnerEmail,
+                    "{noop}unused"));
+
+    userAccountRepository.save(
+            new UserAccount(
+                    otherUserEmail,
+                    "{noop}unused"));
+
+    String productId = createProduct(
+            updateOwnerEmail,
+            "Original Product");
+
+    String requestBody = """
+            {
+              "name": "Updated Product",
+              "description": "Updated description"
+            }
+            """;
+
+    // Another user cannot update it.
+    mockMvc.perform(put(
+                    "/api/products/{productId}",
+                    productId)
+                    .with(user(otherUserEmail).roles("USER"))
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+            .andExpect(status().isNotFound());
+
+    // Its owner can update it.
+    mockMvc.perform(put(
+                    "/api/products/{productId}",
+                    productId)
+                    .with(user(updateOwnerEmail).roles("USER"))
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.name")
+                    .value("Updated Product"))
+            .andExpect(jsonPath("$.description")
+                    .value("Updated description"));
+
+    // A later request reads the persisted values.
+    mockMvc.perform(get(
+                    "/api/products/{productId}",
+                    productId)
+                    .with(user(updateOwnerEmail).roles("USER")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.name")
+                    .value("Updated Product"))
+            .andExpect(jsonPath("$.description")
+                    .value("Updated description"));
+}
 }
