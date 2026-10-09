@@ -218,7 +218,7 @@ class LicenseControllerTest {
                                 .andExpect(jsonPath("$.content[0].licenseKey")
                                                 .doesNotExist())
                                 .andExpect(jsonPath("$.totalElements").value(1))
-                                .andExpect(jsonPath("$.number").value(0))
+                                .andExpect(jsonPath("$.page").value(0))
                                 .andExpect(jsonPath("$.size").value(20));
         }
 

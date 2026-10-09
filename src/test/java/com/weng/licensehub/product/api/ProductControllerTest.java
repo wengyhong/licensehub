@@ -193,7 +193,7 @@ void findAllReturns200AndPagedProducts()
                     .value("LicenseHub Desktop"))
             .andExpect(jsonPath("$.totalElements")
                     .value(1))
-            .andExpect(jsonPath("$.number")
+            .andExpect(jsonPath("$.page")
                     .value(0))
             .andExpect(jsonPath("$.size")
                     .value(20));

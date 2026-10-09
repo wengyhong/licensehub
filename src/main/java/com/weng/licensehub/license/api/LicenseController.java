@@ -21,6 +21,7 @@ import com.weng.licensehub.license.application.IssuedLicense;
 
 import com.weng.licensehub.license.application.LicenseService;
 import com.weng.licensehub.license.domain.License;
+import com.weng.licensehub.shared.api.PagedResponse;
 
 import jakarta.validation.Valid;
 import java.security.Principal;
@@ -56,8 +57,8 @@ public class LicenseController {
     }
 
     @GetMapping("/products/{productId}/licenses")
-    public Page<LicenseResponse> findAllByProductId(@PathVariable UUID productId, Principal principal, @PageableDefault (size = 20, sort ="createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return licenseService.findAllByProductIdForOwner(productId, principal.getName(), pageable).map(this::toResponse);
+    public PagedResponse<LicenseResponse> findAllByProductId(@PathVariable UUID productId, Principal principal, @PageableDefault (size = 20, sort ="createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return PagedResponse.from(licenseService.findAllByProductIdForOwner(productId, principal.getName(), pageable).map(this::toResponse));
     }
 
     @GetMapping("/licenses/{licenseId}")

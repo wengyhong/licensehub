@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.weng.licensehub.product.application.ProductService;
 import com.weng.licensehub.product.domain.Product;
+import com.weng.licensehub.shared.api.PagedResponse;
 
 import jakarta.validation.Valid;
 
@@ -43,9 +44,9 @@ public class ProductController {
     }
 
     @GetMapping
-    Page<ProductResponse> findAll(Principal principal, @PageableDefault (size = 20, sort ="createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+    PagedResponse<ProductResponse> findAll(Principal principal, @PageableDefault (size = 20, sort ="createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
-        return productService.findAll(principal.getName(), pageable).map(this::toResponse);
+        return PagedResponse.from(productService.findAll(principal.getName(), pageable).map(this::toResponse));
     }
 
     @GetMapping("/{id}")
