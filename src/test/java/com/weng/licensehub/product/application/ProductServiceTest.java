@@ -8,6 +8,8 @@ import static org.mockito.Mockito.never;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -26,6 +28,11 @@ import static org.mockito.Mockito.when;
 
 import com.weng.licensehub.user.domain.UserAccount;
 import com.weng.licensehub.user.persistence.UserAccountRepository;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 public class ProductServiceTest {
 
@@ -76,11 +83,17 @@ public class ProductServiceTest {
 
         @Test
         void findAllReturnsOnlyOwnersProducts() {
-
                 UUID ownerId = UUID.randomUUID();
 
                 UserAccount owner = mock(UserAccount.class);
                 Product product = mock(Product.class);
+
+                Pageable pageable = PageRequest.of(0, 20);
+
+                Page<Product> repositoryResult = new PageImpl<>(
+                                List.of(product),
+                                pageable,
+                                1);
 
                 when(owner.getId()).thenReturn(ownerId);
 
@@ -88,16 +101,24 @@ public class ProductServiceTest {
                                 "owner@example.com"))
                                 .thenReturn(Optional.of(owner));
 
-                when(repository
-                                .findAllByOwner_IdOrderByCreatedAtDesc(ownerId))
-                                .thenReturn(List.of(product));
+                when(repository.findAllByOwner_Id(
+                                ownerId,
+                                pageable))
+                                .thenReturn(repositoryResult);
 
-                List<Product> result = service.findAll("owner@example.com");
+                Page<Product> result = service.findAll(
+                                "owner@example.com",
+                                pageable);
 
-                assertEquals(List.of(product), result);
+                assertThat(result.getContent())
+                                .containsExactly(product);
 
-                verify(repository)
-                                .findAllByOwner_IdOrderByCreatedAtDesc(ownerId);
+                assertThat(result.getTotalElements())
+                                .isEqualTo(1);
+
+                verify(repository).findAllByOwner_Id(
+                                ownerId,
+                                pageable);
         }
 
         @Test
@@ -212,34 +233,34 @@ public class ProductServiceTest {
         }
 
         @Test
-void deleteThrowsWhenProductHasLicenses() {
-    UUID productId = UUID.randomUUID();
-    UUID ownerId = UUID.randomUUID();
-    String ownerEmail = "owner@example.com";
+        void deleteThrowsWhenProductHasLicenses() {
+                UUID productId = UUID.randomUUID();
+                UUID ownerId = UUID.randomUUID();
+                String ownerEmail = "owner@example.com";
 
-    UserAccount owner = mock(UserAccount.class);
-    Product product = mock(Product.class);
+                UserAccount owner = mock(UserAccount.class);
+                Product product = mock(Product.class);
 
-    when(userAccountRepository.findByEmailIgnoreCase(ownerEmail))
-            .thenReturn(Optional.of(owner));
+                when(userAccountRepository.findByEmailIgnoreCase(ownerEmail))
+                                .thenReturn(Optional.of(owner));
 
-    when(owner.getId()).thenReturn(ownerId);
+                when(owner.getId()).thenReturn(ownerId);
 
-    when(repository.findByIdAndOwner_Id(
-            productId,
-            ownerId))
-            .thenReturn(Optional.of(product));
+                when(repository.findByIdAndOwner_Id(
+                                productId,
+                                ownerId))
+                                .thenReturn(Optional.of(product));
 
-    when(licenseRepository.existsByProduct_Id(productId))
-            .thenReturn(true);
+                when(licenseRepository.existsByProduct_Id(productId))
+                                .thenReturn(true);
 
-    assertThatThrownBy(
-            () -> service.deleteForOwner(
-                    productId,
-                    ownerEmail))
-            .isInstanceOf(
-                    ProductHasLicensesException.class);
+                assertThatThrownBy(
+                                () -> service.deleteForOwner(
+                                                productId,
+                                                ownerEmail))
+                                .isInstanceOf(
+                                                ProductHasLicensesException.class);
 
-    verify(repository, never()).delete(any());
-}
+                verify(repository, never()).delete(any());
+        }
 }

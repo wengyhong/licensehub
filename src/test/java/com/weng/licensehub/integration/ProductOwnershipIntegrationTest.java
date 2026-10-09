@@ -75,9 +75,18 @@ class ProductOwnershipIntegrationTest {
                 mockMvc.perform(get("/api/products")
                                 .with(user(OWNER_EMAIL).roles("USER")))
                                 .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.length()").value(1))
-                                .andExpect(jsonPath("$[0].id").value(ownerProductId))
-                                .andExpect(jsonPath("$[0].name").value("Owner Product"));
+                                .andExpect(jsonPath("$.content.length()")
+                                                .value(1))
+                                .andExpect(jsonPath("$.content[0].id")
+                                                .value(ownerProductId))
+                                .andExpect(jsonPath("$.content[0].name")
+                                                .value("Owner Product"))
+                                .andExpect(jsonPath("$.totalElements")
+                                                .value(1))
+                                .andExpect(jsonPath("$.number")
+                                                .value(0))
+                                .andExpect(jsonPath("$.size")
+                                                .value(20));
 
                 mockMvc.perform(get("/api/products/{id}", ownerProductId)
                                 .with(user(OTHER_OWNER_EMAIL).roles("USER")))

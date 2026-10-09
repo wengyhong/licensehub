@@ -19,74 +19,81 @@ import com.weng.licensehub.user.domain.UserAccount;
 import com.weng.licensehub.user.persistence.UserAccountRepository;
 
 import jakarta.persistence.EntityManager;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @DataJpaTest
 @Testcontainers
-@AutoConfigureTestDatabase(
-        replace = AutoConfigureTestDatabase.Replace.NONE)
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 class ProductRepositoryTest {
 
-    @Container
-    @ServiceConnection
-    static final PostgreSQLContainer postgres =
-            new PostgreSQLContainer("postgres:18-alpine");
+        @Container
+        @ServiceConnection
+        static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18-alpine");
 
-    @Autowired
-    private ProductRepository productRepository;
+        @Autowired
+        private ProductRepository productRepository;
 
-    @Autowired
-    private UserAccountRepository userAccountRepository;
+        @Autowired
+        private UserAccountRepository userAccountRepository;
 
-    @Autowired
-    private EntityManager entityManager;
+        @Autowired
+        private EntityManager entityManager;
 
-    @Test
-    void queriesProductsByOwner() {
+        @Test
+        void queriesProductsByOwner() {
 
-        UserAccount alice = userAccountRepository.saveAndFlush(
-                new UserAccount(
-                        "alice@example.com",
-                        "{noop}unused"));
+                UserAccount alice = userAccountRepository.saveAndFlush(
+                                new UserAccount(
+                                                "alice@example.com",
+                                                "{noop}unused"));
 
-        UserAccount bob = userAccountRepository.saveAndFlush(
-                new UserAccount(
-                        "bob@example.com",
-                        "{noop}unused"));
+                UserAccount bob = userAccountRepository.saveAndFlush(
+                                new UserAccount(
+                                                "bob@example.com",
+                                                "{noop}unused"));
 
-        Product aliceProduct = productRepository.saveAndFlush(
-                new Product(
-                        alice,
-                        "Alice Product",
-                        null));
+                Product aliceProduct = productRepository.saveAndFlush(
+                                new Product(
+                                                alice,
+                                                "Alice Product",
+                                                null));
 
-        Product bobProduct = productRepository.saveAndFlush(
-                new Product(
-                        bob,
-                        "Bob Product",
-                        null));
+                Product bobProduct = productRepository.saveAndFlush(
+                                new Product(
+                                                bob,
+                                                "Bob Product",
+                                                null));
 
-        UUID aliceId = alice.getId();
-        UUID aliceProductId = aliceProduct.getId();
-        UUID bobProductId = bobProduct.getId();
+                UUID aliceId = alice.getId();
+                UUID aliceProductId = aliceProduct.getId();
+                UUID bobProductId = bobProduct.getId();
 
-        entityManager.clear();
+                entityManager.clear();
 
-        List<Product> aliceProducts = productRepository
-                .findAllByOwner_IdOrderByCreatedAtDesc(
-                        aliceId);
+                Pageable pageable = PageRequest.of(0, 10);
 
-        assertThat(aliceProducts)
-                .extracting(Product::getId)
-                .containsExactly(aliceProductId);
+                Page<Product> aliceProducts = productRepository
+                                .findAllByOwner_Id(
+                                                aliceId,
+                                                pageable);
 
-        assertThat(productRepository.findByIdAndOwner_Id(
-                aliceProductId,
-                aliceId))
-                .isPresent();
+                assertThat(aliceProducts.getContent())
+                                .extracting(Product::getId)
+                                .containsExactly(aliceProductId);
 
-        assertThat(productRepository.findByIdAndOwner_Id(
-                bobProductId,
-                aliceId))
-                .isEmpty();
-    }
+                assertThat(aliceProducts.getTotalElements())
+                                .isEqualTo(1);
+
+                assertThat(productRepository.findByIdAndOwner_Id(
+                                aliceProductId,
+                                aliceId))
+                                .isPresent();
+
+                assertThat(productRepository.findByIdAndOwner_Id(
+                                bobProductId,
+                                aliceId))
+                                .isEmpty();
+        }
 }

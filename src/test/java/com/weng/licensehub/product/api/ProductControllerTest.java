@@ -2,6 +2,8 @@ package com.weng.licensehub.product.api;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -32,6 +34,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.util.List;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import static org.mockito.Mockito.when;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 @WebMvcTest(ProductController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -136,29 +144,60 @@ class ProductControllerTest {
                                                 .value("/api/products/" + id));
         }
 
-        @Test
-        void findAllReturns200AndProducts() throws Exception {
-                UUID id = UUID.fromString("7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
-                Instant timestamp = Instant.parse("2026-09-23T10:00:00Z");
+       @Test
+void findAllReturns200AndPagedProducts()
+        throws Exception {
 
-                Product product = mock(Product.class);
-                when(product.getId()).thenReturn(id);
-                when(product.getName()).thenReturn("LicenseHub Desktop");
-                when(product.getDescription()).thenReturn("Desktop product");
-                when(product.getCreatedAt()).thenReturn(timestamp);
-                when(product.getUpdatedAt()).thenReturn(timestamp);
+    UUID id = UUID.fromString(
+            "7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
 
-                when(productService.findAll(
-                                "owner@example.com"))
-                                .thenReturn(List.of(product));
+    Instant timestamp =
+            Instant.parse("2026-09-23T10:00:00Z");
 
-                mockMvc.perform(get("/api/products")
-                                .principal(() -> "owner@example.com"))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.length()").value(1))
-                                .andExpect(jsonPath("$[0].id").value(id.toString()))
-                                .andExpect(jsonPath("$[0].name").value("LicenseHub Desktop"));
-        }
+    Product product = mock(Product.class);
+    when(product.getId()).thenReturn(id);
+    when(product.getName())
+            .thenReturn("LicenseHub Desktop");
+    when(product.getDescription())
+            .thenReturn("Desktop product");
+    when(product.getCreatedAt())
+            .thenReturn(timestamp);
+    when(product.getUpdatedAt())
+            .thenReturn(timestamp);
+
+    Pageable pageable = PageRequest.of(
+            0,
+            20,
+            Sort.Direction.DESC,
+            "createdAt");
+
+    Page<Product> page = new PageImpl<>(
+            List.of(product),
+            pageable,
+            1);
+
+    when(productService.findAll(
+            "owner@example.com",
+            pageable))
+            .thenReturn(page);
+
+    mockMvc.perform(get("/api/products")
+                    .principal(
+                            () -> "owner@example.com"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content.length()")
+                    .value(1))
+            .andExpect(jsonPath("$.content[0].id")
+                    .value(id.toString()))
+            .andExpect(jsonPath("$.content[0].name")
+                    .value("LicenseHub Desktop"))
+            .andExpect(jsonPath("$.totalElements")
+                    .value(1))
+            .andExpect(jsonPath("$.number")
+                    .value(0))
+            .andExpect(jsonPath("$.size")
+                    .value(20));
+}
 
         @Test
         void deleteReturns204() throws Exception {

@@ -12,7 +12,8 @@ import com.weng.licensehub.product.domain.Product;
 import com.weng.licensehub.product.persistence.ProductRepository;
 import com.weng.licensehub.user.domain.UserAccount;
 import com.weng.licensehub.user.persistence.UserAccountRepository;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 @Service
 public class ProductService {
 
@@ -45,13 +46,13 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public List<Product> findAll(String ownerEmail) {
+    public Page<Product> findAll(String ownerEmail, Pageable pageable) {
 
         UserAccount owner = requireOwner(ownerEmail);
 
         return repository
-                .findAllByOwner_IdOrderByCreatedAtDesc(
-                        owner.getId());
+                .findAllByOwner_Id(
+                        owner.getId(), pageable);
     }
 
     @Transactional(readOnly = true)
