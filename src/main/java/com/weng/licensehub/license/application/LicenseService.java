@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -99,15 +101,15 @@ public class LicenseService {
         }
 
         @Transactional(readOnly = true)
-        public List<License> findAllByProductIdForOwner(
+        public Page<License> findAllByProductIdForOwner(
                         UUID productId,
-                        String ownerEmail) {
+                        String ownerEmail, Pageable pageable) {
 
                 requireOwnedProduct(productId, ownerEmail);
 
                 return licenseRepository
-                                .findAllByProduct_IdOrderByCreatedAtDesc(
-                                                productId);
+                                .findAllByProduct_Id(
+                                                productId,pageable);
         }
 
         @Transactional(readOnly = true)

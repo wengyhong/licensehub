@@ -24,7 +24,10 @@ import com.weng.licensehub.user.persistence.UserAccountRepository;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 @DataJpaTest
 @Testcontainers
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -119,15 +122,25 @@ class LicenseRepositoryTest {
 
                 entityManager.clear();
 
-                List<License> result = licenseRepository
-                                .findAllByProduct_IdOrderByCreatedAtDesc(
-                                                targetProduct.getId());
+                Pageable pageable = PageRequest.of(
+        0,
+        10,
+        Sort.Direction.DESC,
+        "createdAt");
 
-                assertThat(result)
-                                .extracting(License::getKeyId)
-                                .containsExactly(
-                                                newerLicense.getKeyId(),
-                                                olderLicense.getKeyId());
+Page<License> result = licenseRepository
+        .findAllByProduct_Id(
+                targetProduct.getId(),
+                pageable);
+
+assertThat(result.getContent())
+        .extracting(License::getKeyId)
+        .containsExactly(
+                newerLicense.getKeyId(),
+                olderLicense.getKeyId());
+
+assertThat(result.getTotalElements())
+        .isEqualTo(2);
         }
 
         @Test

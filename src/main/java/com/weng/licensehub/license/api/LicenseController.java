@@ -3,6 +3,10 @@ package com.weng.licensehub.license.api;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -52,9 +56,8 @@ public class LicenseController {
     }
 
     @GetMapping("/products/{productId}/licenses")
-    public List<LicenseResponse> findAllByProductId(@PathVariable UUID productId, Principal principal) {
-        return licenseService.findAllByProductIdForOwner(productId, principal.getName()).stream().map(this::toResponse)
-                .toList();
+    public Page<LicenseResponse> findAllByProductId(@PathVariable UUID productId, Principal principal, @PageableDefault (size = 20, sort ="createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return licenseService.findAllByProductIdForOwner(productId, principal.getName(), pageable).map(this::toResponse);
     }
 
     @GetMapping("/licenses/{licenseId}")

@@ -25,6 +25,10 @@ import com.weng.licensehub.product.domain.Product;
 import com.weng.licensehub.product.persistence.ProductRepository;
 import com.weng.licensehub.user.domain.UserAccount;
 import com.weng.licensehub.user.persistence.UserAccountRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 class LicenseServiceTest {
 
@@ -195,7 +199,6 @@ class LicenseServiceTest {
                 assertSame(license, result);
         }
 
-
         @Test
         void getByIdForOwnerThrowsWhenLicenseIsNotOwned() {
                 UUID ownerId = stubOwner();
@@ -223,34 +226,40 @@ class LicenseServiceTest {
                 UUID productId = UUID.randomUUID();
                 Product product = mock(Product.class);
                 License license = mock(License.class);
-                List<License> expected = List.of(license);
+                Pageable pageable = PageRequest.of(0, 20);
+
+                Page<License> expected = new PageImpl<>(
+                                List.of(license),
+                                pageable,
+                                1);
 
                 when(productRepository.findByIdAndOwner_Id(
                                 productId,
                                 ownerId))
                                 .thenReturn(Optional.of(product));
 
-                when(licenseRepository
-                                .findAllByProduct_IdOrderByCreatedAtDesc(
-                                                productId))
+                when(licenseRepository.findAllByProduct_Id(
+                                productId,
+                                pageable))
                                 .thenReturn(expected);
 
-                List<License> result = service.findAllByProductIdForOwner(
+                Page<License> result = service.findAllByProductIdForOwner(
                                 productId,
-                                OWNER_EMAIL);
+                                OWNER_EMAIL,
+                                pageable);
 
-                assertEquals(expected, result);
+                assertSame(expected, result);
 
-                verify(licenseRepository)
-                                .findAllByProduct_IdOrderByCreatedAtDesc(
-                                                productId);
+                verify(licenseRepository).findAllByProduct_Id(
+                                productId,
+                                pageable);
         }
 
         @Test
         void findAllByProductIdForOwnerThrowsWhenProductIsNotOwned() {
                 UUID ownerId = stubOwner();
                 UUID productId = UUID.randomUUID();
-
+                Pageable pageable = PageRequest.of(0, 20);
                 when(productRepository.findByIdAndOwner_Id(
                                 productId,
                                 ownerId))
@@ -260,7 +269,8 @@ class LicenseServiceTest {
                                 ProductNotFoundException.class,
                                 () -> service.findAllByProductIdForOwner(
                                                 productId,
-                                                OWNER_EMAIL));
+                                                OWNER_EMAIL,
+                                                pageable));
 
                 assertEquals(
                                 "Product '" + productId + "' was not found",

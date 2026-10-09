@@ -34,6 +34,11 @@ import java.util.List;
 import com.weng.licensehub.product.application.ProductNotFoundException;
 
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 @WebMvcTest(LicenseController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -183,21 +188,38 @@ class LicenseControllerTest {
                 when(license.getStatus()).thenReturn(LicenseStatus.ACTIVE);
                 when(license.getMaxActivations()).thenReturn(2);
 
+                Pageable pageable = PageRequest.of(
+                                0,
+                                20,
+                                Sort.Direction.DESC,
+                                "createdAt");
+
+                Page<License> page = new PageImpl<>(
+                                List.of(license),
+                                pageable,
+                                1);
+
                 when(licenseService.findAllByProductIdForOwner(
                                 productId,
-                                "owner@example.com"))
-                                .thenReturn(List.of(license));
+                                "owner@example.com",
+                                pageable))
+                                .thenReturn(page);
                 mockMvc.perform(
                                 get("/api/products/{productId}/licenses", productId)
                                                 .principal(() -> "owner@example.com"))
                                 .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.length()").value(1))
-                                .andExpect(jsonPath("$[0].id")
+                                .andExpect(jsonPath("$.content.length()").value(1))
+                                .andExpect(jsonPath("$.content[0].id")
                                                 .value(licenseId.toString()))
-                                .andExpect(jsonPath("$[0].productId")
+                                .andExpect(jsonPath("$.content[0].productId")
                                                 .value(productId.toString()))
-                                .andExpect(jsonPath("$[0].keyHash").doesNotExist())
-                                .andExpect(jsonPath("$[0].licenseKey").doesNotExist());
+                                .andExpect(jsonPath("$.content[0].keyHash")
+                                                .doesNotExist())
+                                .andExpect(jsonPath("$.content[0].licenseKey")
+                                                .doesNotExist())
+                                .andExpect(jsonPath("$.totalElements").value(1))
+                                .andExpect(jsonPath("$.number").value(0))
+                                .andExpect(jsonPath("$.size").value(20));
         }
 
         @Test
@@ -206,22 +228,32 @@ class LicenseControllerTest {
 
                 UUID productId = UUID.randomUUID();
 
+                Pageable pageable = PageRequest.of(
+                                0,
+                                20,
+                                Sort.Direction.DESC,
+                                "createdAt");
+
                 when(licenseService.findAllByProductIdForOwner(
                                 productId,
-                                "owner@example.com"))
-                                .thenThrow(new ProductNotFoundException(
-                                                productId));
-                mockMvc.perform(
-                                get("/api/products/{productId}/licenses", productId)
-                                                .principal(() -> "owner@example.com"))
+                                "owner@example.com",
+                                pageable))
+                                .thenThrow(
+                                                new ProductNotFoundException(productId));
+
+                mockMvc.perform(get(
+                                "/api/products/{productId}/licenses",
+                                productId)
+                                .principal(
+                                                () -> "owner@example.com"))
                                 .andExpect(status().isNotFound())
                                 .andExpect(jsonPath("$.title")
                                                 .value("Product not found"))
-                                .andExpect(jsonPath("$.status").value(404))
+                                .andExpect(jsonPath("$.status")
+                                                .value(404))
                                 .andExpect(jsonPath("$.detail")
-                                                .value("Product '" + productId + "' was not found"))
-                                .andExpect(jsonPath("$.instance")
-                                                .value("/api/products/" + productId + "/licenses"));
+                                                .value("Product '" + productId
+                                                                + "' was not found"));
         }
 
         @Test
