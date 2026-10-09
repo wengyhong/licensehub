@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.weng.licensehub.license.persistence.LicenseRepository;
 import com.weng.licensehub.product.domain.Product;
 import com.weng.licensehub.product.persistence.ProductRepository;
 import com.weng.licensehub.user.domain.UserAccount;
@@ -15,14 +16,16 @@ import com.weng.licensehub.user.persistence.UserAccountRepository;
 @Service
 public class ProductService {
 
+    private final LicenseRepository licenseRepository;
     private final ProductRepository repository;
     private final UserAccountRepository userAccountRepository;
 
     public ProductService(ProductRepository repo,
-            UserAccountRepository userAccountRepository) {
+            UserAccountRepository userAccountRepository, LicenseRepository licenseRepository) {
 
         this.repository = repo;
         this.userAccountRepository = userAccountRepository;
+        this.licenseRepository = licenseRepository;
     }
 
     @Transactional
@@ -71,6 +74,19 @@ public class ProductService {
 
         return product;
     }
+
+    @Transactional
+    public void deleteForOwner(  UUID productId,
+            String ownerEmail)
+            {
+                    Product product = requireOwnedProduct(productId, ownerEmail);
+
+                    if(licenseRepository.existsByProduct_Id(productId))
+                        throw new ProductHasLicensesException(productId);
+
+                    repository.delete(product);
+            }
+
 
     private Product requireOwnedProduct(
             UUID productId,

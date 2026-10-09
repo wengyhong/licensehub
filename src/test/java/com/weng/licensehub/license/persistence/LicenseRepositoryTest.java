@@ -190,4 +190,32 @@ class LicenseRepositoryTest {
                                 .isEqualTo(
                                                 LockModeType.PESSIMISTIC_WRITE);
         }
+
+        @Test
+        void reportsWhetherProductHasLicenses() {
+                Product productWithLicense = productRepository.save(
+                                new Product(owner, "Licensed product", null));
+
+                Product productWithoutLicense = productRepository.save(
+                                new Product(owner, "Unlicensed product", null));
+
+                licenseRepository.saveAndFlush(
+                                new License(
+                                                productWithLicense,
+                                                "DDDDDDDDDDDDDDDD",
+                                                "d".repeat(64),
+                                                "customer@example.com",
+                                                1,
+                                                null));
+
+                entityManager.clear();
+
+                assertThat(licenseRepository.existsByProduct_Id(
+                                productWithLicense.getId()))
+                                .isTrue();
+
+                assertThat(licenseRepository.existsByProduct_Id(
+                                productWithoutLicense.getId()))
+                                .isFalse();
+        }
 }

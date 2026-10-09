@@ -7,10 +7,10 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.weng.licensehub.product.application.ProductService;
 
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -22,8 +22,10 @@ import org.springframework.http.MediaType;
 
 import com.weng.licensehub.product.domain.Product;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
+import com.weng.licensehub.product.application.ProductHasLicensesException;
 import com.weng.licensehub.product.application.ProductNotFoundException;
 
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -159,63 +161,41 @@ class ProductControllerTest {
         }
 
         @Test
-        void updateReturns200AndUpdatedProduct() throws Exception {
-                UUID id = UUID.fromString("7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
-                Instant createdAt = Instant.parse("2026-09-23T10:00:00Z");
-                Instant updatedAt = Instant.parse("2026-10-08T10:00:00Z");
+        void deleteReturns204() throws Exception {
+                UUID productId = UUID.randomUUID();
 
-                Product product = mock(Product.class);
-                when(product.getId()).thenReturn(id);
-                when(product.getName()).thenReturn("Updated Product");
-                when(product.getDescription()).thenReturn("Updated description");
-                when(product.getCreatedAt()).thenReturn(createdAt);
-                when(product.getUpdatedAt()).thenReturn(updatedAt);
+                mockMvc.perform(delete(
+                                "/api/products/{productId}",
+                                productId)
+                                .principal(() -> "owner@example.com"))
+                                .andExpect(status().isNoContent());
 
-                when(productService.updateForOwner(
-                                id,
-                                "owner@example.com",
-                                "Updated Product",
-                                "Updated description"))
-                                .thenReturn(product);
-
-                mockMvc.perform(put("/api/products/{productId}", id)
-                                .principal(() -> "owner@example.com")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                                {
-                                                  "name": "Updated Product",
-                                                  "description": "Updated description"
-                                                }
-                                                """))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.id").value(id.toString()))
-                                .andExpect(jsonPath("$.name").value("Updated Product"))
-                                .andExpect(jsonPath("$.description").value("Updated description"))
-                                .andExpect(jsonPath("$.createdAt").value(createdAt.toString()))
-                                .andExpect(jsonPath("$.updatedAt").value(updatedAt.toString()));
-
-                verify(productService).updateForOwner(
-                                id,
-                                "owner@example.com",
-                                "Updated Product",
-                                "Updated description");
+                verify(productService).deleteForOwner(
+                                productId,
+                                "owner@example.com");
         }
 
         @Test
-        void updateReturns400WhenNameIsBlank() throws Exception {
-                UUID id = UUID.fromString("7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
+        void deleteReturns409WhenProductHasLicenses()
+                        throws Exception {
 
-                mockMvc.perform(put("/api/products/{productId}", id)
-                                .principal(() -> "owner@example.com")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                                {
-                                                  "name": " ",
-                                                  "description": "Description"
-                                                }
-                                                """))
-                                .andExpect(status().isBadRequest());
+                UUID productId = UUID.randomUUID();
 
-                verifyNoInteractions(productService);
+                doThrow(new ProductHasLicensesException(productId))
+                                .when(productService)
+                                .deleteForOwner(
+                                                productId,
+                                                "owner@example.com");
+
+                mockMvc.perform(delete(
+                                "/api/products/{productId}",
+                                productId)
+                                .principal(() -> "owner@example.com"))
+                                .andExpect(status().isConflict())
+                                .andExpect(jsonPath("$.title")
+                                                .value("Product has existing licenses"))
+                                .andExpect(jsonPath("$.status")
+                                                .value(409));
         }
+
 }

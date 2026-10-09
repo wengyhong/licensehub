@@ -1,8 +1,10 @@
 package com.weng.licensehub.product.application;
 
+import com.weng.licensehub.license.persistence.LicenseRepository;
 import com.weng.licensehub.product.domain.Product;
 import com.weng.licensehub.product.persistence.ProductRepository;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,15 +32,17 @@ public class ProductServiceTest {
         private ProductRepository repository;
         private ProductService service;
         private UserAccountRepository userAccountRepository;
+        private LicenseRepository licenseRepository;
 
         @BeforeEach
         void setUp() {
                 repository = mock(ProductRepository.class);
                 userAccountRepository = mock(UserAccountRepository.class);
-
+                licenseRepository = mock(LicenseRepository.class);
                 service = new ProductService(
                                 repository,
-                                userAccountRepository);
+                                userAccountRepository,
+                                licenseRepository);
         }
 
         @Test
@@ -179,4 +183,63 @@ public class ProductServiceTest {
                                 null))
                                 .isInstanceOf(ProductNotFoundException.class);
         }
+
+        @Test
+        void deletesOwnedProductWithoutLicenses() {
+                UUID productId = UUID.randomUUID();
+                UUID ownerId = UUID.randomUUID();
+                String ownerEmail = "owner@example.com";
+
+                UserAccount owner = mock(UserAccount.class);
+                Product product = mock(Product.class);
+
+                when(userAccountRepository.findByEmailIgnoreCase(ownerEmail))
+                                .thenReturn(Optional.of(owner));
+
+                when(owner.getId()).thenReturn(ownerId);
+
+                when(repository.findByIdAndOwner_Id(
+                                productId,
+                                ownerId))
+                                .thenReturn(Optional.of(product));
+
+                when(licenseRepository.existsByProduct_Id(productId))
+                                .thenReturn(false);
+
+                service.deleteForOwner(productId, ownerEmail);
+
+                verify(repository).delete(product);
+        }
+
+        @Test
+void deleteThrowsWhenProductHasLicenses() {
+    UUID productId = UUID.randomUUID();
+    UUID ownerId = UUID.randomUUID();
+    String ownerEmail = "owner@example.com";
+
+    UserAccount owner = mock(UserAccount.class);
+    Product product = mock(Product.class);
+
+    when(userAccountRepository.findByEmailIgnoreCase(ownerEmail))
+            .thenReturn(Optional.of(owner));
+
+    when(owner.getId()).thenReturn(ownerId);
+
+    when(repository.findByIdAndOwner_Id(
+            productId,
+            ownerId))
+            .thenReturn(Optional.of(product));
+
+    when(licenseRepository.existsByProduct_Id(productId))
+            .thenReturn(true);
+
+    assertThatThrownBy(
+            () -> service.deleteForOwner(
+                    productId,
+                    ownerEmail))
+            .isInstanceOf(
+                    ProductHasLicensesException.class);
+
+    verify(repository, never()).delete(any());
+}
 }

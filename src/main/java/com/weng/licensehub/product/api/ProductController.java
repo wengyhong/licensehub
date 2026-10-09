@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -56,16 +57,28 @@ public class ProductController {
     }
 
     @PutMapping("/{productId}")
-    ProductResponse  updateById(
+    ProductResponse updateById(
             @PathVariable UUID productId,
             @RequestBody @Valid UpdateProductRequest requestBody,
             Principal principal) {
 
-        Product product = productService.updateForOwner(productId, principal.getName(), requestBody.name(), requestBody.description());
+        Product product = productService.updateForOwner(productId, principal.getName(), requestBody.name(),
+                requestBody.description());
 
         return toResponse(product);
 
+    }
 
+    @DeleteMapping("/{productId}")
+    ResponseEntity<Void> deleteById(
+            @PathVariable UUID productId,
+            Principal principal)
+
+    {
+        productService.deleteForOwner(productId, principal.getName());
+
+        return ResponseEntity.noContent().build();
 
     }
+
 }

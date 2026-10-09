@@ -12,19 +12,23 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
 public interface LicenseRepository extends JpaRepository<License, UUID> {
 
-    List<License> findAllByProduct_IdOrderByCreatedAtDesc(UUID productId);
-    Optional<License> findByKeyId(String keyId);
+        List<License> findAllByProduct_IdOrderByCreatedAtDesc(UUID productId);
 
-    Optional<License> findByIdAndProduct_Owner_Id(UUID productId, UUID ownerId);
+        Optional<License> findByKeyId(String keyId);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-@Query("""
-        select license
-        from License license
-        where license.id = :licenseId
-        """)
-Optional<License> findByIdForUpdate(
-        @Param("licenseId") UUID licenseId);
+        Optional<License> findByIdAndProduct_Owner_Id(UUID productId, UUID ownerId);
+
+        @Lock(LockModeType.PESSIMISTIC_WRITE)
+        @Query("""
+                        select license
+                        from License license
+                        where license.id = :licenseId
+                        """)
+        Optional<License> findByIdForUpdate(
+                        @Param("licenseId") UUID licenseId);
+
+        boolean existsByProduct_Id(UUID productId);
 }

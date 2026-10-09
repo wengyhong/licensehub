@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.weng.licensehub.license.application.LicenseNotFoundException;
+import com.weng.licensehub.product.application.ProductHasLicensesException;
 import com.weng.licensehub.product.application.ProductNotFoundException;
 import com.weng.licensehub.user.application.EmailAlreadyRegisteredException;
 import com.weng.licensehub.activation.application.ActivationLimitExceededException;
@@ -96,6 +97,16 @@ public class ApiExceptionHandler {
                 "Invalid email or password");
 
         problem.setTitle("Authentication failed");
+
+        return problem;
+    }
+
+    @ExceptionHandler (ProductHasLicensesException.class)
+    public ProblemDetail handleProductHasLicenses(ProductHasLicensesException exception)
+    {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+
+        problem.setTitle("Product has existing licenses");
 
         return problem;
     }

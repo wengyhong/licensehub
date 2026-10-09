@@ -2,10 +2,13 @@ package com.weng.licensehub.integration;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +22,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import com.weng.licensehub.license.domain.License;
+import com.weng.licensehub.license.persistence.LicenseRepository;
 import com.weng.licensehub.product.domain.Product;
 import com.weng.licensehub.product.persistence.ProductRepository;
 import com.weng.licensehub.user.domain.UserAccount;
@@ -27,150 +32,245 @@ import com.weng.licensehub.user.persistence.UserAccountRepository;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers
 class ProductOwnershipIntegrationTest {
 
-    private static final String OWNER_EMAIL = "owner@example.com";
-    private static final String OTHER_OWNER_EMAIL = "other-owner@example.com";
+        private static final String OWNER_EMAIL = "owner@example.com";
+        private static final String OTHER_OWNER_EMAIL = "other-owner@example.com";
 
-    @Container
-    @ServiceConnection
-    static final PostgreSQLContainer postgres =
-            new PostgreSQLContainer("postgres:18-alpine");
+        @Container
+        @ServiceConnection
+        static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18-alpine");
 
-    @Autowired
-    private MockMvc mockMvc;
+        @Autowired
+        private MockMvc mockMvc;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+        @Autowired
+        private ObjectMapper objectMapper;
 
-    @Autowired
-    private ProductRepository productRepository;
+        @Autowired
+        private ProductRepository productRepository;
+        @Autowired
+        private LicenseRepository licenseRepository;
+        @Autowired
+        private UserAccountRepository userAccountRepository;
 
-    @Autowired
-    private UserAccountRepository userAccountRepository;
+        @Test
+        void scopesProductReadsToAuthenticatedOwner() throws Exception {
+                userAccountRepository.save(
+                                new UserAccount(OWNER_EMAIL, "{noop}unused"));
+                userAccountRepository.save(
+                                new UserAccount(OTHER_OWNER_EMAIL, "{noop}unused"));
 
-    @Test
-    void scopesProductReadsToAuthenticatedOwner() throws Exception {
-        userAccountRepository.save(
-                new UserAccount(OWNER_EMAIL, "{noop}unused"));
-        userAccountRepository.save(
-                new UserAccount(OTHER_OWNER_EMAIL, "{noop}unused"));
+                String ownerProductId = createProduct(
+                                OWNER_EMAIL,
+                                "Owner Product");
+                createProduct(
+                                OTHER_OWNER_EMAIL,
+                                "Other Owner Product");
 
-        String ownerProductId = createProduct(
-                OWNER_EMAIL,
-                "Owner Product");
-        createProduct(
-                OTHER_OWNER_EMAIL,
-                "Other Owner Product");
+                mockMvc.perform(get("/api/products")
+                                .with(user(OWNER_EMAIL).roles("USER")))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.length()").value(1))
+                                .andExpect(jsonPath("$[0].id").value(ownerProductId))
+                                .andExpect(jsonPath("$[0].name").value("Owner Product"));
 
+                mockMvc.perform(get("/api/products/{id}", ownerProductId)
+                                .with(user(OTHER_OWNER_EMAIL).roles("USER")))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.title").value("Product not found"));
 
+                mockMvc.perform(get("/api/products/{id}", ownerProductId)
+                                .with(user(OWNER_EMAIL).roles("USER")))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.id").value(ownerProductId));
+        }
 
-        mockMvc.perform(get("/api/products")
-                .with(user(OWNER_EMAIL).roles("USER")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].id").value(ownerProductId))
-                .andExpect(jsonPath("$[0].name").value("Owner Product"));
+        private String createProduct(
+                        String ownerEmail,
+                        String productName) throws Exception {
 
-        mockMvc.perform(get("/api/products/{id}", ownerProductId)
-                .with(user(OTHER_OWNER_EMAIL).roles("USER")))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.title").value("Product not found"));
+                MvcResult result = mockMvc.perform(post("/api/products")
+                                .with(user(ownerEmail).roles("USER"))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {
+                                                  "name": "%s",
+                                                  "description": "Ownership integration test"
+                                                }
+                                                """.formatted(productName)))
+                                .andExpect(status().isCreated())
+                                .andReturn();
 
-        mockMvc.perform(get("/api/products/{id}", ownerProductId)
-                .with(user(OWNER_EMAIL).roles("USER")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(ownerProductId));
-    }
+                JsonNode response = objectMapper.readTree(
+                                result.getResponse().getContentAsString());
 
-    private String createProduct(
-            String ownerEmail,
-            String productName) throws Exception {
+                return response.get("id").asText();
+        }
 
-        MvcResult result = mockMvc.perform(post("/api/products")
-                .with(user(ownerEmail).roles("USER"))
-                .with(csrf())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                        {
-                          "name": "%s",
-                          "description": "Ownership integration test"
-                        }
-                        """.formatted(productName)))
-                .andExpect(status().isCreated())
-                .andReturn();
+        @Test
+        void onlyOwnerCanUpdateProduct() throws Exception {
+                String updateOwnerEmail = "update-owner@example.com";
 
-        JsonNode response = objectMapper.readTree(
-                result.getResponse().getContentAsString());
+                String otherUserEmail = "update-other@example.com";
 
-        return response.get("id").asText();
-    }
+                userAccountRepository.save(
+                                new UserAccount(
+                                                updateOwnerEmail,
+                                                "{noop}unused"));
 
-    @Test
-void onlyOwnerCanUpdateProduct() throws Exception {
-    String updateOwnerEmail =
-            "update-owner@example.com";
+                userAccountRepository.save(
+                                new UserAccount(
+                                                otherUserEmail,
+                                                "{noop}unused"));
 
-    String otherUserEmail =
-            "update-other@example.com";
+                String productId = createProduct(
+                                updateOwnerEmail,
+                                "Original Product");
 
-    userAccountRepository.save(
-            new UserAccount(
-                    updateOwnerEmail,
-                    "{noop}unused"));
+                String requestBody = """
+                                {
+                                  "name": "Updated Product",
+                                  "description": "Updated description"
+                                }
+                                """;
 
-    userAccountRepository.save(
-            new UserAccount(
-                    otherUserEmail,
-                    "{noop}unused"));
+                // Another user cannot update it.
+                mockMvc.perform(put(
+                                "/api/products/{productId}",
+                                productId)
+                                .with(user(otherUserEmail).roles("USER"))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody))
+                                .andExpect(status().isNotFound());
 
-    String productId = createProduct(
-            updateOwnerEmail,
-            "Original Product");
+                // Its owner can update it.
+                mockMvc.perform(put(
+                                "/api/products/{productId}",
+                                productId)
+                                .with(user(updateOwnerEmail).roles("USER"))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.name")
+                                                .value("Updated Product"))
+                                .andExpect(jsonPath("$.description")
+                                                .value("Updated description"));
 
-    String requestBody = """
-            {
-              "name": "Updated Product",
-              "description": "Updated description"
-            }
-            """;
+                // A later request reads the persisted values.
+                mockMvc.perform(get(
+                                "/api/products/{productId}",
+                                productId)
+                                .with(user(updateOwnerEmail).roles("USER")))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.name")
+                                                .value("Updated Product"))
+                                .andExpect(jsonPath("$.description")
+                                                .value("Updated description"));
+        }
 
-    // Another user cannot update it.
-    mockMvc.perform(put(
-                    "/api/products/{productId}",
-                    productId)
-                    .with(user(otherUserEmail).roles("USER"))
-                    .with(csrf())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(requestBody))
-            .andExpect(status().isNotFound());
+        @Test
+        void onlyOwnerCanDeleteProductWithoutLicenses()
+                        throws Exception {
 
-    // Its owner can update it.
-    mockMvc.perform(put(
-                    "/api/products/{productId}",
-                    productId)
-                    .with(user(updateOwnerEmail).roles("USER"))
-                    .with(csrf())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(requestBody))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.name")
-                    .value("Updated Product"))
-            .andExpect(jsonPath("$.description")
-                    .value("Updated description"));
+                String deleteOwnerEmail = "delete-owner@example.com";
 
-    // A later request reads the persisted values.
-    mockMvc.perform(get(
-                    "/api/products/{productId}",
-                    productId)
-                    .with(user(updateOwnerEmail).roles("USER")))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.name")
-                    .value("Updated Product"))
-            .andExpect(jsonPath("$.description")
-                    .value("Updated description"));
-}
+                String otherUserEmail = "delete-other@example.com";
+
+                userAccountRepository.save(
+                                new UserAccount(
+                                                deleteOwnerEmail,
+                                                "{noop}unused"));
+
+                userAccountRepository.save(
+                                new UserAccount(
+                                                otherUserEmail,
+                                                "{noop}unused"));
+
+                String productId = createProduct(
+                                deleteOwnerEmail,
+                                "Deletable Product");
+
+                // Another user cannot delete it.
+                mockMvc.perform(delete(
+                                "/api/products/{productId}",
+                                productId)
+                                .with(user(otherUserEmail).roles("USER"))
+                                .with(csrf()))
+                                .andExpect(status().isNotFound());
+
+                // The product still exists.
+                mockMvc.perform(get(
+                                "/api/products/{productId}",
+                                productId)
+                                .with(user(deleteOwnerEmail).roles("USER")))
+                                .andExpect(status().isOk());
+
+                // Its owner can delete it.
+                mockMvc.perform(delete(
+                                "/api/products/{productId}",
+                                productId)
+                                .with(user(deleteOwnerEmail).roles("USER"))
+                                .with(csrf()))
+                                .andExpect(status().isNoContent());
+
+                // A later request confirms deletion persisted.
+                mockMvc.perform(get(
+                                "/api/products/{productId}",
+                                productId)
+                                .with(user(deleteOwnerEmail).roles("USER")))
+                                .andExpect(status().isNotFound());
+        }
+
+        @Test
+        void cannotDeleteProductWithLicenses()
+                        throws Exception {
+
+                String ownerEmail = "licensed-product-owner@example.com";
+
+                userAccountRepository.save(
+                                new UserAccount(
+                                                ownerEmail,
+                                                "{noop}unused"));
+
+                String productId = createProduct(
+                                ownerEmail,
+                                "Licensed Product");
+
+                Product product = productRepository.findById(
+                                UUID.fromString(productId))
+                                .orElseThrow();
+
+                licenseRepository.saveAndFlush(
+                                new License(
+                                                product,
+                                                "EEEEEEEEEEEEEEEE",
+                                                "e".repeat(64),
+                                                "customer@example.com",
+                                                1,
+                                                null));
+
+                mockMvc.perform(delete(
+                                "/api/products/{productId}",
+                                productId)
+                                .with(user(ownerEmail).roles("USER"))
+                                .with(csrf()))
+                                .andExpect(status().isConflict())
+                                .andExpect(jsonPath("$.title")
+                                                .value("Product has existing licenses"));
+
+                // The product remains available.
+                mockMvc.perform(get(
+                                "/api/products/{productId}",
+                                productId)
+                                .with(user(ownerEmail).roles("USER")))
+                                .andExpect(status().isOk());
+        }
 }
