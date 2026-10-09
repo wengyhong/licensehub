@@ -271,7 +271,21 @@ class LicenseControllerTest {
                                                                   "expiresAt": "2000-01-01T00:00:00Z"
                                                                 }
                                                                 """))
-                                .andExpect(status().isBadRequest());
+                                .andExpect(status().isBadRequest()).andExpect(status().isBadRequest())
+                                .andExpect(content().contentTypeCompatibleWith(
+                                                MediaType.APPLICATION_PROBLEM_JSON))
+                                .andExpect(jsonPath("$.title")
+                                                .value("Validation failed"))
+                                .andExpect(jsonPath("$.status")
+                                                .value(400))
+                                .andExpect(jsonPath("$.detail")
+                                                .value("One or more fields are invalid"))
+                                .andExpect(jsonPath("$.errors.customerEmail")
+                                                .exists())
+                                .andExpect(jsonPath("$.errors.maxActivations")
+                                                .exists())
+                                .andExpect(jsonPath("$.errors.expiresAt")
+                                                .exists());
 
                 verifyNoInteractions(licenseService);
         }
@@ -308,6 +322,38 @@ class LicenseControllerTest {
                                 .principal(() -> "owner@example.com")
                                 .with(csrf()))
                                 .andExpect(status().isNotFound());
+        }
+
+        @Test
+        void issueReturns400ForMalformedExpirationDate()
+                        throws Exception {
+
+                UUID productId = UUID.randomUUID();
+
+                mockMvc.perform(post(
+                                "/api/products/{productId}/licenses",
+                                productId)
+                                .principal(
+                                                () -> "owner@example.com")
+                                .contentType(
+                                                MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {
+                                                  "customerEmail": "customer@example.com",
+                                                  "maxActivations": 1,
+                                                  "expiresAt": "not-a-date"
+                                                }
+                                                """))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.title")
+                                                .value("Malformed request"))
+                                .andExpect(jsonPath("$.status")
+                                                .value(400))
+                                .andExpect(jsonPath("$.detail")
+                                                .value(
+                                                                "Request body is missing or contains invalid JSON"));
+
+                verifyNoInteractions(licenseService);
         }
 
 }

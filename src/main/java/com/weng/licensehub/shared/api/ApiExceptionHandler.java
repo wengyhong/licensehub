@@ -1,7 +1,14 @@
 package com.weng.licensehub.shared.api;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.springframework.boot.webmvc.autoconfigure.WebMvcProperties.Problemdetails;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -101,12 +108,48 @@ public class ApiExceptionHandler {
         return problem;
     }
 
-    @ExceptionHandler (ProductHasLicensesException.class)
-    public ProblemDetail handleProductHasLicenses(ProductHasLicensesException exception)
-    {
+    @ExceptionHandler(ProductHasLicensesException.class)
+    public ProblemDetail handleProductHasLicenses(ProductHasLicensesException exception) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
 
         problem.setTitle("Product has existing licenses");
+
+        return problem;
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ProblemDetail handleValidation(
+            MethodArgumentNotValidException exception) {
+
+        Map<String, String> errors = exception
+                .getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .collect(Collectors.toMap(
+                        error -> error.getField(),
+                        error -> error.getDefaultMessage() == null
+                                ? "Invalid value"
+                                : error.getDefaultMessage(),
+                        (first, ignored) -> first,
+                        LinkedHashMap::new));
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "One or more fields are invalid");
+
+        problem.setTitle("Validation failed");
+        problem.setProperty("errors", errors);
+
+        return problem;
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+
+    public ProblemDetail handleUnreadableRequest(HttpMessageNotReadableException exception) {
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Request body is missing or contains invalid JSON");
+
+        problem.setTitle(("Malformed request"));
 
         return problem;
     }

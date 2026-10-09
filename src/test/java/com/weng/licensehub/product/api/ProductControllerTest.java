@@ -13,6 +13,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -95,7 +96,16 @@ class ProductControllerTest {
                                                   "description": "Invalid product"
                                                 }
                                                 """))
-                                .andExpect(status().isBadRequest());
+                                .andExpect(status().isBadRequest()).andExpect(content().contentTypeCompatibleWith(
+                                                MediaType.APPLICATION_PROBLEM_JSON))
+                                .andExpect(jsonPath("$.title")
+                                                .value("Validation failed"))
+                                .andExpect(jsonPath("$.status")
+                                                .value(400))
+                                .andExpect(jsonPath("$.detail")
+                                                .value("One or more fields are invalid"))
+                                .andExpect(jsonPath("$.errors.name")
+                                                .value("must not be blank"));
 
                 verifyNoInteractions(productService);
         }
@@ -144,60 +154,150 @@ class ProductControllerTest {
                                                 .value("/api/products/" + id));
         }
 
-       @Test
-void findAllReturns200AndPagedProducts()
-        throws Exception {
+        @Test
+        void findAllReturns200AndPagedProducts()
+                        throws Exception {
 
-    UUID id = UUID.fromString(
-            "7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
+                UUID id = UUID.fromString(
+                                "7a38cd7d-e02b-4ed7-bb88-31f284d85a34");
 
-    Instant timestamp =
-            Instant.parse("2026-09-23T10:00:00Z");
+                Instant timestamp = Instant.parse("2026-09-23T10:00:00Z");
 
-    Product product = mock(Product.class);
-    when(product.getId()).thenReturn(id);
-    when(product.getName())
-            .thenReturn("LicenseHub Desktop");
-    when(product.getDescription())
-            .thenReturn("Desktop product");
-    when(product.getCreatedAt())
-            .thenReturn(timestamp);
-    when(product.getUpdatedAt())
-            .thenReturn(timestamp);
+                Product product = mock(Product.class);
+                when(product.getId()).thenReturn(id);
+                when(product.getName())
+                                .thenReturn("LicenseHub Desktop");
+                when(product.getDescription())
+                                .thenReturn("Desktop product");
+                when(product.getCreatedAt())
+                                .thenReturn(timestamp);
+                when(product.getUpdatedAt())
+                                .thenReturn(timestamp);
 
-    Pageable pageable = PageRequest.of(
-            0,
-            20,
-            Sort.Direction.DESC,
-            "createdAt");
+                Pageable pageable = PageRequest.of(
+                                0,
+                                20,
+                                Sort.Direction.DESC,
+                                "createdAt");
 
-    Page<Product> page = new PageImpl<>(
-            List.of(product),
-            pageable,
-            1);
+                Page<Product> page = new PageImpl<>(
+                                List.of(product),
+                                pageable,
+                                1);
 
-    when(productService.findAll(
-            "owner@example.com",
-            pageable))
-            .thenReturn(page);
+                when(productService.findAll(
+                                "owner@example.com",
+                                pageable))
+                                .thenReturn(page);
 
-    mockMvc.perform(get("/api/products")
-                    .principal(
-                            () -> "owner@example.com"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.content.length()")
-                    .value(1))
-            .andExpect(jsonPath("$.content[0].id")
-                    .value(id.toString()))
-            .andExpect(jsonPath("$.content[0].name")
-                    .value("LicenseHub Desktop"))
-            .andExpect(jsonPath("$.totalElements")
-                    .value(1))
-            .andExpect(jsonPath("$.page")
-                    .value(0))
-            .andExpect(jsonPath("$.size")
-                    .value(20));
-}
+                mockMvc.perform(get("/api/products")
+                                .principal(
+                                                () -> "owner@example.com"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.content.length()")
+                                                .value(1))
+                                .andExpect(jsonPath("$.content[0].id")
+                                                .value(id.toString()))
+                                .andExpect(jsonPath("$.content[0].name")
+                                                .value("LicenseHub Desktop"))
+                                .andExpect(jsonPath("$.totalElements")
+                                                .value(1))
+                                .andExpect(jsonPath("$.page")
+                                                .value(0))
+                                .andExpect(jsonPath("$.size")
+                                                .value(20));
+        }
+
+        @Test
+        void updateReturns400WhenNameIsBlank()
+                        throws Exception {
+
+                UUID productId = UUID.randomUUID();
+
+                mockMvc.perform(put(
+                                "/api/products/{productId}",
+                                productId)
+                                .principal(
+                                                () -> "owner@example.com")
+                                .contentType(
+                                                MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {
+                                                  "name": " ",
+                                                  "description": "Description"
+                                                }
+                                                """))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(content()
+                                                .contentTypeCompatibleWith(
+                                                                MediaType.APPLICATION_PROBLEM_JSON))
+                                .andExpect(jsonPath("$.title")
+                                                .value("Validation failed"))
+                                .andExpect(jsonPath("$.status")
+                                                .value(400))
+                                .andExpect(jsonPath("$.detail")
+                                                .value("One or more fields are invalid"))
+                                .andExpect(jsonPath("$.errors.name")
+                                                .value("must not be blank"));
+
+                verifyNoInteractions(productService);
+        }
+
+        @Test
+        void updateReturns200AndUpdatedProduct()
+                        throws Exception {
+
+                UUID productId = UUID.randomUUID();
+                Instant createdAt = Instant.parse("2026-09-23T10:00:00Z");
+                Instant updatedAt = Instant.parse("2026-10-09T10:00:00Z");
+
+                Product product = mock(Product.class);
+                when(product.getId()).thenReturn(productId);
+                when(product.getName())
+                                .thenReturn("Updated Product");
+                when(product.getDescription())
+                                .thenReturn("Updated description");
+                when(product.getCreatedAt())
+                                .thenReturn(createdAt);
+                when(product.getUpdatedAt())
+                                .thenReturn(updatedAt);
+
+                when(productService.updateForOwner(
+                                productId,
+                                "owner@example.com",
+                                "Updated Product",
+                                "Updated description"))
+                                .thenReturn(product);
+
+                mockMvc.perform(put(
+                                "/api/products/{productId}",
+                                productId)
+                                .principal(
+                                                () -> "owner@example.com")
+                                .contentType(
+                                                MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {
+                                                  "name": "Updated Product",
+                                                  "description": "Updated description"
+                                                }
+                                                """))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.id")
+                                                .value(productId.toString()))
+                                .andExpect(jsonPath("$.name")
+                                                .value("Updated Product"))
+                                .andExpect(jsonPath("$.description")
+                                                .value("Updated description"))
+                                .andExpect(jsonPath("$.updatedAt")
+                                                .value(updatedAt.toString()));
+
+                verify(productService).updateForOwner(
+                                productId,
+                                "owner@example.com",
+                                "Updated Product",
+                                "Updated description");
+        }
 
         @Test
         void deleteReturns204() throws Exception {
