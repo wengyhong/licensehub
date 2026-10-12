@@ -26,6 +26,7 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import com.weng.licensehub.activation.application.ActivationLimitExceededException;
 import com.weng.licensehub.activation.application.LicenseNotActivatableException;
+import com.weng.licensehub.activation.application.MachineNotActivatedException;
 import com.weng.licensehub.license.application.InvalidLicenseKeyException;
 
 import static org.mockito.Mockito.doThrow;
@@ -262,5 +263,105 @@ class ActivationControllerTest {
                                                 .value(401))
                                 .andExpect(jsonPath("$.detail")
                                                 .value("Invalid license key"));
+        }
+
+        @Test
+        void validateReturns200AndRefreshesActivation() throws Exception {
+                UUID activationId = UUID.randomUUID();
+                UUID licenseId = UUID.randomUUID();
+                Instant lastSeenAt = Instant.parse("2026-10-12T10:00:00Z");
+
+                License license = mock(License.class);
+                MachineActivation activation = mock(MachineActivation.class);
+
+                when(license.getId()).thenReturn(licenseId);
+                when(activation.getId()).thenReturn(activationId);
+                when(activation.getLicense()).thenReturn(license);
+                when(activation.getMachineName())
+                                .thenReturn("Development laptop");
+                when(activation.getActivatedAt())
+                                .thenReturn(Instant.parse(
+                                                "2026-10-01T10:00:00Z"));
+                when(activation.getLastSeenAt())
+                                .thenReturn(lastSeenAt);
+
+                when(activationService.validate(
+                                "full-license-key",
+                                "raw-machine-fingerprint"))
+                                .thenReturn(activation);
+
+                mockMvc.perform(post("/api/activations/validate")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {
+                                                  "licenseKey": "full-license-key",
+                                                  "machineFingerprint": "raw-machine-fingerprint"
+                                                }
+                                                """))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.id")
+                                                .value(activationId.toString()))
+                                .andExpect(jsonPath("$.licenseId")
+                                                .value(licenseId.toString()))
+                                .andExpect(jsonPath("$.lastSeenAt")
+                                                .value(lastSeenAt.toString()))
+                                .andExpect(jsonPath("$.licenseKey")
+                                                .doesNotExist())
+                                .andExpect(jsonPath("$.machineFingerprint")
+                                                .doesNotExist())
+                                .andExpect(jsonPath("$.machineFingerprintHash")
+                                                .doesNotExist());
+
+                verify(activationService).validate(
+                                "full-license-key",
+                                "raw-machine-fingerprint");
+        }
+
+        @Test
+        void validateReturns403WhenMachineIsNotActivated()
+                        throws Exception {
+
+                when(activationService.validate(
+                                "full-license-key",
+                                "raw-machine-fingerprint"))
+                                .thenThrow(new MachineNotActivatedException());
+
+                mockMvc.perform(post("/api/activations/validate")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {
+                                                  "licenseKey": "full-license-key",
+                                                  "machineFingerprint": "raw-machine-fingerprint"
+                                                }
+                                                """))
+                                .andExpect(status().isForbidden())
+                                .andExpect(jsonPath("$.title")
+                                                .value("Machine not activated"))
+                                .andExpect(jsonPath("$.status").value(403))
+                                .andExpect(jsonPath("$.detail")
+                                                .value("Machine is not activated for this license"));
+        }
+
+        @Test
+        void validateReturns400ForBlankRequiredFields()
+                        throws Exception {
+
+                mockMvc.perform(post("/api/activations/validate")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {
+                                                  "licenseKey": "",
+                                                  "machineFingerprint": " "
+                                                }
+                                                """))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.title")
+                                                .value("Validation failed"))
+                                .andExpect(jsonPath("$.errors.licenseKey")
+                                                .exists())
+                                .andExpect(jsonPath("$.errors.machineFingerprint")
+                                                .exists());
+
+                verifyNoInteractions(activationService);
         }
 }

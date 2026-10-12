@@ -1,7 +1,6 @@
 package com.weng.licensehub.activation.api;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,16 +41,18 @@ public class ActivationController {
     }
 
     @PostMapping("/activations/deactivate")
-    @ResponseStatus (HttpStatus.NO_CONTENT)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deactivate(
 
-        @Valid
-        @RequestBody
-        DeactivateMachineRequest request)
-        {
-            activationService.deactivate(request.licenseKey(), request.machineFingerprint());
-        }
+            @Valid @RequestBody DeactivateMachineRequest request) {
+        activationService.deactivate(request.licenseKey(), request.machineFingerprint());
+    }
 
+    @PostMapping("/activations/validate")
+    public ActivationResponse validate(@Valid @RequestBody ValidateActivationRequest request) {
+        MachineActivation activation = activationService.validate(request.licenseKey(), request.machineFingerprint());
 
+        return toResponse(activation);
 
+    }
 }

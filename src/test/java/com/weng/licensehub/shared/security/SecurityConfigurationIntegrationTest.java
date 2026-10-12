@@ -218,4 +218,23 @@ class SecurityConfigurationIntegrationTest {
                                 .with(csrf()))
                                 .andExpect(status().isNotFound());
         }
+
+        @Test
+        void validationEndpointIsPublicAndDoesNotRequireCsrf()
+                        throws Exception {
+
+                mockMvc.perform(post("/api/activations/validate")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {
+                                                  "licenseKey": "not-a-valid-license-key",
+                                                  "machineFingerprint": "test-machine"
+                                                }
+                                                """))
+                                .andExpect(status().isUnauthorized())
+                                .andExpect(jsonPath("$.title")
+                                                .value("Invalid license key"))
+                                .andExpect(jsonPath("$.detail")
+                                                .value("Invalid license key"));
+        }
 }

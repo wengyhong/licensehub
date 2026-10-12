@@ -13,6 +13,7 @@ import com.weng.licensehub.license.application.LicenseKeyVerifier;
 import com.weng.licensehub.license.domain.License;
 import com.weng.licensehub.shared.security.Sha256Hasher;
 import com.weng.licensehub.license.persistence.LicenseRepository;
+
 @Service
 
 public class ActivationService {
@@ -22,7 +23,6 @@ public class ActivationService {
     private final MachineActivationRepository machineActivationRepository;
     private final Clock clock;
     private final LicenseRepository licenseRepository;
-
 
     public ActivationService(LicenseKeyVerifier licenseKeyVerifier, Sha256Hasher sha256Hasher,
             MachineActivationRepository machineActivationRepository, Clock clock, LicenseRepository licenseRepository) {
@@ -40,7 +40,8 @@ public class ActivationService {
             String machineName) {
         License verifiedLicense = licenseKeyVerifier.verify(fullLicenseKey);
 
-        License license = licenseRepository.findByIdForUpdate(verifiedLicense.getId()).orElseThrow(()-> new LicenseNotActivatableException());
+        License license = licenseRepository.findByIdForUpdate(verifiedLicense.getId())
+                .orElseThrow(() -> new LicenseNotActivatableException());
 
         Instant now = clock.instant();
 
@@ -73,16 +74,38 @@ public class ActivationService {
     }
 
     @Transactional
-    public void deactivate(String licenseKey, String machineFingerprint)
-    {
+    public void deactivate(String licenseKey, String machineFingerprint) {
         License verifiedLicense = licenseKeyVerifier.verify(licenseKey);
 
-        License license = licenseRepository.findByIdForUpdate(verifiedLicense.getId()).orElseThrow(LicenseNotActivatableException::new);
+        License license = licenseRepository.findByIdForUpdate(verifiedLicense.getId())
+                .orElseThrow(LicenseNotActivatableException::new);
 
         String fingerprintHash = sha256Hasher.hash(machineFingerprint);
 
-        machineActivationRepository.findByLicense_IdAndMachineFingerprintHashAndDeactivatedAtIsNull(license.getId(), fingerprintHash).ifPresent(a -> a.deactivate(clock.instant()));
+        machineActivationRepository
+                .findByLicense_IdAndMachineFingerprintHashAndDeactivatedAtIsNull(license.getId(), fingerprintHash)
+                .ifPresent(a -> a.deactivate(clock.instant()));
     }
 
+    @Transactional
+    public MachineActivation validate(String licenseKey, String machineFingerprint) {
+        License verifiedLicense = licenseKeyVerifier.verify(licenseKey);
+        Instant now = clock.instant();
+
+        if (!verifiedLicense.canActivateAt(now)) {
+            throw new LicenseNotActivatableException();
+        }
+
+        String fingerprintHash = sha256Hasher.hash(machineFingerprint);
+
+        MachineActivation machineActivation = machineActivationRepository
+                .findByLicense_IdAndMachineFingerprintHashAndDeactivatedAtIsNull(verifiedLicense.getId(),
+                        fingerprintHash)
+                .orElseThrow(() -> new MachineNotActivatedException());
+
+        machineActivation.markSeen(clock.instant());
+
+        return machineActivation;
+    }
 
 }

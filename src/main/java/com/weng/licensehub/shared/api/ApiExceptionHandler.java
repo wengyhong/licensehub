@@ -19,6 +19,7 @@ import com.weng.licensehub.user.application.EmailAlreadyRegisteredException;
 import com.weng.licensehub.activation.application.ActivationLimitExceededException;
 import com.weng.licensehub.activation.application.LicenseNotActivatableException;
 import com.weng.licensehub.activation.application.MachineActivationNotFoundException;
+import com.weng.licensehub.activation.application.MachineNotActivatedException;
 import com.weng.licensehub.license.application.InvalidLicenseKeyException;
 import org.springframework.security.core.AuthenticationException;
 
@@ -165,6 +166,19 @@ public class ApiExceptionHandler {
                 exception.getMessage());
 
         problem.setTitle("Machine activation not found");
+
+        return problem;
+    }
+
+    @ExceptionHandler(MachineNotActivatedException.class)
+    public ProblemDetail handleMachineNotActivated(
+            MachineNotActivatedException exception) {
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.FORBIDDEN,
+                exception.getMessage());
+
+        problem.setTitle("Machine not activated");
 
         return problem;
     }
