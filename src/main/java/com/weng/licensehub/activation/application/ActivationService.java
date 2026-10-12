@@ -84,4 +84,5 @@ public class ActivationService {
         machineActivationRepository.findByLicense_IdAndMachineFingerprintHashAndDeactivatedAtIsNull(license.getId(), fingerprintHash).ifPresent(a -> a.deactivate(clock.instant()));
     }
 
+
 }

@@ -7,7 +7,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -29,78 +33,144 @@ import com.weng.licensehub.license.domain.License;
 @ExtendWith(MockitoExtension.class)
 class ActivationManagementServiceTest {
 
-    private static final String OWNER_EMAIL = "owner@example.com";
+        private static final String OWNER_EMAIL = "owner@example.com";
 
-    @Mock
-    private LicenseService licenseService;
+        @Mock
+        private LicenseService licenseService;
 
-    @Mock
-    private MachineActivationRepository activationRepository;
+        @Mock
+        private MachineActivationRepository activationRepository;
 
-    private ActivationManagementService service;
+        private ActivationManagementService service;
+        private static final Instant NOW = Instant.parse("2026-10-12T10:00:00Z");
 
-    @BeforeEach
-    void setUp() {
-        service = new ActivationManagementService(
-                licenseService,
-                activationRepository);
-    }
+        @BeforeEach
+        void setUp() {
 
-    @Test
-    void findAllForOwnerReturnsRepositoryResults() {
-        UUID licenseId = UUID.randomUUID();
-        License license = mock(License.class);
-        MachineActivation activation = mock(MachineActivation.class);
-        Pageable pageable = PageRequest.of(0, 20);
-        Page<MachineActivation> expected = new PageImpl<>(
-                List.of(activation),
-                pageable,
-                1);
+                Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
 
-        when(licenseService.getByIdForOwner(
-                licenseId,
-                OWNER_EMAIL))
-                .thenReturn(license);
+                service = new ActivationManagementService(
+                                licenseService,
+                                activationRepository,
+                                clock);
+        }
 
-        when(activationRepository.findAllByLicense_Id(
-                licenseId,
-                pageable))
-                .thenReturn(expected);
+        @Test
+        void findAllForOwnerReturnsRepositoryResults() {
+                UUID licenseId = UUID.randomUUID();
+                License license = mock(License.class);
+                MachineActivation activation = mock(MachineActivation.class);
+                Pageable pageable = PageRequest.of(0, 20);
+                Page<MachineActivation> expected = new PageImpl<>(
+                                List.of(activation),
+                                pageable,
+                                1);
 
-        Page<MachineActivation> result = service.findAllForOwner(
-                licenseId,
-                OWNER_EMAIL,
-                pageable);
+                when(licenseService.getByIdForOwner(
+                                licenseId,
+                                OWNER_EMAIL))
+                                .thenReturn(license);
 
-        assertThat(result).isSameAs(expected);
+                when(activationRepository.findAllByLicense_Id(
+                                licenseId,
+                                pageable))
+                                .thenReturn(expected);
 
-        verify(licenseService).getByIdForOwner(
-                licenseId,
-                OWNER_EMAIL);
+                Page<MachineActivation> result = service.findAllForOwner(
+                                licenseId,
+                                OWNER_EMAIL,
+                                pageable);
 
-        verify(activationRepository).findAllByLicense_Id(
-                licenseId,
-                pageable);
-    }
+                assertThat(result).isSameAs(expected);
 
-    @Test
-    void findAllForOwnerDoesNotQueryActivationsWhenLicenseIsNotOwned() {
-        UUID licenseId = UUID.randomUUID();
-        Pageable pageable = PageRequest.of(0, 20);
-        LicenseNotFoundException exception =
-                new LicenseNotFoundException(licenseId);
+                verify(licenseService).getByIdForOwner(
+                                licenseId,
+                                OWNER_EMAIL);
 
-        when(licenseService.getByIdForOwner(
-                licenseId,
-                OWNER_EMAIL))
-                .thenThrow(exception);
+                verify(activationRepository).findAllByLicense_Id(
+                                licenseId,
+                                pageable);
+        }
 
-        assertThatThrownBy(() -> service.findAllForOwner(
-                licenseId,
-                OWNER_EMAIL,
-                pageable))
-                .isSameAs(exception);
+        @Test
+        void findAllForOwnerDoesNotQueryActivationsWhenLicenseIsNotOwned() {
+                UUID licenseId = UUID.randomUUID();
+                Pageable pageable = PageRequest.of(0, 20);
+                LicenseNotFoundException exception = new LicenseNotFoundException(licenseId);
 
-        verifyNoInteractions(activationRepository);
-    }
+                when(licenseService.getByIdForOwner(
+                                licenseId,
+                                OWNER_EMAIL))
+                                .thenThrow(exception);
+
+                assertThatThrownBy(() -> service.findAllForOwner(
+                                licenseId,
+                                OWNER_EMAIL,
+                                pageable))
+                                .isSameAs(exception);
+
+                verifyNoInteractions(activationRepository);
+        }
+
+        @Test
+        void deactivateForOwnerDeactivatesActivationAtCurrentTime() {
+                UUID licenseId = UUID.randomUUID();
+                UUID activationId = UUID.randomUUID();
+
+                License license = mock(License.class);
+                MachineActivation activation = mock(MachineActivation.class);
+
+                when(licenseService.getByIdForOwner(
+                                licenseId,
+                                OWNER_EMAIL))
+                                .thenReturn(license);
+
+                when(activationRepository.findByIdAndLicense_Id(
+                                activationId,
+                                licenseId))
+                                .thenReturn(Optional.of(activation));
+
+                service.deactivateForOwner(
+                                licenseId,
+                                activationId,
+                                OWNER_EMAIL);
+
+                verify(licenseService).getByIdForOwner(
+                                licenseId,
+                                OWNER_EMAIL);
+
+                verify(activationRepository).findByIdAndLicense_Id(
+                                activationId,
+                                licenseId);
+
+                verify(activation).deactivate(NOW);
+        }
+
+        @Test
+        void deactivateForOwnerThrowsWhenActivationDoesNotBelongToLicense() {
+                UUID licenseId = UUID.randomUUID();
+                UUID activationId = UUID.randomUUID();
+
+                License license = mock(License.class);
+
+                when(licenseService.getByIdForOwner(
+                                licenseId,
+                                OWNER_EMAIL))
+                                .thenReturn(license);
+
+                when(activationRepository.findByIdAndLicense_Id(
+                                activationId,
+                                licenseId))
+                                .thenReturn(Optional.empty());
+
+                assertThatThrownBy(() -> service.deactivateForOwner(
+                                licenseId,
+                                activationId,
+                                OWNER_EMAIL))
+                                .isInstanceOf(MachineActivationNotFoundException.class)
+                                .hasMessage(
+                                                "Machine activation '"
+                                                                + activationId
+                                                                + "' not found");
+        }
 }

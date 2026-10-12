@@ -22,6 +22,7 @@ import com.weng.licensehub.user.domain.UserAccount;
 import com.weng.licensehub.user.persistence.UserAccountRepository;
 import org.junit.jupiter.api.BeforeEach;
 import java.util.UUID;
+
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers
@@ -169,6 +170,52 @@ class SecurityConfigurationIntegrationTest {
                                 licenseId)
                                 .with(user("manager@example.com")
                                                 .roles("USER")))
+                                .andExpect(status().isNotFound());
+        }
+
+        @Test
+        void anonymousUserCannotDeactivateManagedActivation()
+                        throws Exception {
+
+                UUID licenseId = UUID.randomUUID();
+                UUID activationId = UUID.randomUUID();
+
+                mockMvc.perform(post(
+                                "/api/licenses/{licenseId}/activations/{activationId}/deactivate",
+                                licenseId,
+                                activationId)
+                                .with(csrf()))
+                                .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        void managementDeactivationRequiresCsrf() throws Exception {
+                UUID licenseId = UUID.randomUUID();
+                UUID activationId = UUID.randomUUID();
+
+                mockMvc.perform(post(
+                                "/api/licenses/{licenseId}/activations/{activationId}/deactivate",
+                                licenseId,
+                                activationId)
+                                .with(user("manager@example.com")
+                                                .roles("USER")))
+                                .andExpect(status().isForbidden());
+        }
+
+        @Test
+        void authenticatedUserWithCsrfCanRequestManagementDeactivation()
+                        throws Exception {
+
+                UUID licenseId = UUID.randomUUID();
+                UUID activationId = UUID.randomUUID();
+
+                mockMvc.perform(post(
+                                "/api/licenses/{licenseId}/activations/{activationId}/deactivate",
+                                licenseId,
+                                activationId)
+                                .with(user("manager@example.com")
+                                                .roles("USER"))
+                                .with(csrf()))
                                 .andExpect(status().isNotFound());
         }
 }

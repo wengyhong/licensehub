@@ -1,5 +1,6 @@
 package com.weng.licensehub.activation.application;
 
+import java.time.Clock;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -14,13 +15,15 @@ import com.weng.licensehub.license.application.LicenseService;
 @Service
 public class ActivationManagementService {
 
+    private final Clock clock;
     private final LicenseService licenseService;
     private final MachineActivationRepository activationRepository;
 
     public ActivationManagementService(LicenseService licenseService,
-            MachineActivationRepository activationRepository) {
+            MachineActivationRepository activationRepository, Clock clock) {
         this.licenseService = licenseService;
         this.activationRepository = activationRepository;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -29,9 +32,19 @@ public class ActivationManagementService {
             String ownerEmail,
             Pageable pageable) {
 
-                licenseService.getByIdForOwner(licenseId, ownerEmail);
+        licenseService.getByIdForOwner(licenseId, ownerEmail);
 
-                return activationRepository.findAllByLicense_Id(licenseId, pageable);
+        return activationRepository.findAllByLicense_Id(licenseId, pageable);
+    }
+
+    @Transactional
+    public void deactivateForOwner(UUID licenseId, UUID activationId, String ownerEmail) {
+
+        licenseService.getByIdForOwner(licenseId, ownerEmail);
+        MachineActivation activation = activationRepository.findByIdAndLicense_Id(activationId, licenseId)
+                .orElseThrow(() -> new MachineActivationNotFoundException(activationId));
+
+        activation.deactivate(clock.instant());
     }
 
 }

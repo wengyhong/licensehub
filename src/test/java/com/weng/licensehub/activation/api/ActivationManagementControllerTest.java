@@ -24,9 +24,13 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.weng.licensehub.activation.application.ActivationManagementService;
+import com.weng.licensehub.activation.application.MachineActivationNotFoundException;
 import com.weng.licensehub.activation.domain.MachineActivation;
 import com.weng.licensehub.license.application.LicenseNotFoundException;
 import com.weng.licensehub.license.domain.License;
+import static org.mockito.Mockito.doThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 
 @WebMvcTest(ActivationManagementController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -149,5 +153,59 @@ class ActivationManagementControllerTest {
                                 licenseId,
                                 "owner@example.com",
                                 pageable);
+        }
+
+        @Test
+        void deactivateReturns204() throws Exception {
+                UUID licenseId = UUID.randomUUID();
+                UUID activationId = UUID.randomUUID();
+
+                mockMvc.perform(post(
+                                "/api/licenses/{licenseId}/activations/{activationId}/deactivate",
+                                licenseId,
+                                activationId)
+                                .principal(() -> "owner@example.com"))
+                                .andExpect(status().isNoContent())
+                                .andExpect(content().string(""));
+
+                verify(activationManagementService).deactivateForOwner(
+                                licenseId,
+                                activationId,
+                                "owner@example.com");
+        }
+
+        @Test
+        void deactivateReturns404WhenActivationDoesNotBelongToLicense()
+                        throws Exception {
+
+                UUID licenseId = UUID.randomUUID();
+                UUID activationId = UUID.randomUUID();
+
+                doThrow(new MachineActivationNotFoundException(activationId))
+                                .when(activationManagementService)
+                                .deactivateForOwner(
+                                                licenseId,
+                                                activationId,
+                                                "owner@example.com");
+
+                mockMvc.perform(post(
+                                "/api/licenses/{licenseId}/activations/{activationId}/deactivate",
+                                licenseId,
+                                activationId)
+                                .principal(() -> "owner@example.com"))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.title")
+                                                .value("Machine activation not found"))
+                                .andExpect(jsonPath("$.status").value(404))
+                                .andExpect(jsonPath("$.detail")
+                                                .value("Machine activation '"
+                                                                + activationId
+                                                                + "' not found"))
+                                .andExpect(jsonPath("$.instance")
+                                                .value("/api/licenses/"
+                                                                + licenseId
+                                                                + "/activations/"
+                                                                + activationId
+                                                                + "/deactivate"));
         }
 }

@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.weng.licensehub.activation.application.ActivationManagementService;
@@ -15,7 +16,9 @@ import com.weng.licensehub.shared.api.PagedResponse;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 
 @RequestMapping("/api/licenses")
 @RestController
@@ -48,6 +51,14 @@ public class ActivationManagementController {
                 activation.getLastSeenAt(),
                 activation.getDeactivatedAt(),
                 activation.isActive());
+    }
+
+    @PostMapping("/{licenseId}/activations/{activationId}/deactivate")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deactivateForOwner(
+            @PathVariable UUID licenseId, @PathVariable UUID activationId, Principal principal) {
+        activationManagementService.deactivateForOwner(licenseId, activationId, principal.getName());
+
     }
 
 }

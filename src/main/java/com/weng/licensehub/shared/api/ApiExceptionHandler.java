@@ -18,6 +18,7 @@ import com.weng.licensehub.product.application.ProductNotFoundException;
 import com.weng.licensehub.user.application.EmailAlreadyRegisteredException;
 import com.weng.licensehub.activation.application.ActivationLimitExceededException;
 import com.weng.licensehub.activation.application.LicenseNotActivatableException;
+import com.weng.licensehub.activation.application.MachineActivationNotFoundException;
 import com.weng.licensehub.license.application.InvalidLicenseKeyException;
 import org.springframework.security.core.AuthenticationException;
 
@@ -147,9 +148,23 @@ public class ApiExceptionHandler {
 
     public ProblemDetail handleUnreadableRequest(HttpMessageNotReadableException exception) {
 
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Request body is missing or contains invalid JSON");
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+                "Request body is missing or contains invalid JSON");
 
         problem.setTitle(("Malformed request"));
+
+        return problem;
+    }
+
+    @ExceptionHandler(MachineActivationNotFoundException.class)
+    public ProblemDetail handleMachineActivationNotFound(
+            MachineActivationNotFoundException exception) {
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND,
+                exception.getMessage());
+
+        problem.setTitle("Machine activation not found");
 
         return problem;
     }

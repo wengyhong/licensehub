@@ -264,4 +264,52 @@ class MachineActivationRepositoryTest {
                                                 licenseId))
                                 .isEqualTo(1);
         }
+
+        @Test
+        void findsActivationOnlyWhenItBelongsToLicense() {
+                Product product = productRepository.save(
+                                new Product(owner, "Product", null));
+
+                License targetLicense = licenseRepository.save(
+                                new License(
+                                                product,
+                                                "AAAAAAAAAAAAAAAA",
+                                                "a".repeat(64),
+                                                "target@example.com",
+                                                3,
+                                                null));
+
+                License otherLicense = licenseRepository.save(
+                                new License(
+                                                product,
+                                                "BBBBBBBBBBBBBBBB",
+                                                "b".repeat(64),
+                                                "other@example.com",
+                                                3,
+                                                null));
+
+                MachineActivation activation = activationRepository.save(
+                                new MachineActivation(
+                                                targetLicense,
+                                                "1".repeat(64),
+                                                "Laptop"));
+
+                UUID activationId = activation.getId();
+                UUID targetLicenseId = targetLicense.getId();
+                UUID otherLicenseId = otherLicense.getId();
+
+                entityManager.flush();
+                entityManager.clear();
+
+                assertThat(activationRepository.findByIdAndLicense_Id(
+                                activationId,
+                                targetLicenseId))
+                                .map(MachineActivation::getId)
+                                .contains(activationId);
+
+                assertThat(activationRepository.findByIdAndLicense_Id(
+                                activationId,
+                                otherLicenseId))
+                                .isEmpty();
+        }
 }
