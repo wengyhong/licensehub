@@ -113,11 +113,11 @@ public class LicenseService {
         }
 
         @Transactional(readOnly = true)
-        public License getByIdForOwner(UUID productId, String email) {
+        public License getByIdForOwner(UUID licenseId, String email) {
                 UserAccount owner = requireOwner(email);
 
-                return licenseRepository.findByIdAndProduct_Owner_Id(productId, owner.getId())
-                                .orElseThrow(() -> new LicenseNotFoundException(productId));
+                return licenseRepository.findByIdAndProduct_Owner_Id(licenseId, owner.getId())
+                                .orElseThrow(() -> new LicenseNotFoundException(licenseId));
         }
 
         @Transactional

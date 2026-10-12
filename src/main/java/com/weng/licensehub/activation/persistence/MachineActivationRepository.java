@@ -3,6 +3,8 @@ package com.weng.licensehub.activation.persistence;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.weng.licensehub.activation.domain.MachineActivation;
@@ -15,4 +17,6 @@ public interface MachineActivationRepository extends JpaRepository<MachineActiva
 
     //How many active machines currently use this license?
     long countByLicense_IdAndDeactivatedAtIsNull(UUID licenseId);
+
+    Page<MachineActivation> findAllByLicense_Id(UUID licenseId, Pageable pageable);
 }

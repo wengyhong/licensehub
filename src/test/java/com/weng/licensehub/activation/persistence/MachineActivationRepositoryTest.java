@@ -11,6 +11,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -22,6 +25,7 @@ import com.weng.licensehub.product.domain.Product;
 import com.weng.licensehub.product.persistence.ProductRepository;
 import com.weng.licensehub.user.domain.UserAccount;
 import com.weng.licensehub.user.persistence.UserAccountRepository;
+import org.springframework.data.domain.Sort;
 
 import jakarta.persistence.EntityManager;
 
@@ -29,7 +33,7 @@ import jakarta.persistence.EntityManager;
 @Testcontainers
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 class MachineActivationRepositoryTest {
-  @Autowired
+        @Autowired
         private UserAccountRepository userAccountRepository;
 
         private UserAccount owner;
@@ -39,6 +43,7 @@ class MachineActivationRepositoryTest {
                 owner = userAccountRepository.save(
                                 new UserAccount("owner@example.com", "test-password-hash"));
         }
+
         @Container
         @ServiceConnection
         static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18-alpine");
@@ -56,9 +61,76 @@ class MachineActivationRepositoryTest {
         private EntityManager entityManager;
 
         @Test
+        void findsPagedActivationsForLicenseOnly() {
+                Product product = productRepository.save(
+                                new Product(owner, "Product", null));
+
+                License targetLicense = licenseRepository.save(
+                                new License(
+                                                product,
+                                                "AAAAAAAAAAAAAAAA",
+                                                "a".repeat(64),
+                                                "target@example.com",
+                                                3,
+                                                null));
+
+                License otherLicense = licenseRepository.save(
+                                new License(
+                                                product,
+                                                "BBBBBBBBBBBBBBBB",
+                                                "b".repeat(64),
+                                                "other@example.com",
+                                                3,
+                                                null));
+
+                MachineActivation first = activationRepository.save(
+                                new MachineActivation(
+                                                targetLicense,
+                                                "1".repeat(64),
+                                                "Laptop"));
+
+                MachineActivation second = activationRepository.save(
+                                new MachineActivation(
+                                                targetLicense,
+                                                "2".repeat(64),
+                                                "Desktop"));
+
+                activationRepository.save(
+                                new MachineActivation(
+                                                otherLicense,
+                                                "3".repeat(64),
+                                                "Other machine"));
+
+                UUID firstId = first.getId();
+                UUID secondId = second.getId();
+
+                entityManager.flush();
+                entityManager.clear();
+
+                Pageable pageable = PageRequest.of(
+                                0,
+                                20,
+                                Sort.Direction.DESC,
+                                "activatedAt");
+
+                Page<MachineActivation> result = activationRepository.findAllByLicense_Id(
+                                targetLicense.getId(),
+                                pageable);
+
+                assertThat(result.getContent())
+                                .extracting(MachineActivation::getId)
+                                .containsExactlyInAnyOrder(firstId, secondId);
+
+                assertThat(result.getTotalElements()).isEqualTo(2);
+                assertThat(result.getTotalPages()).isEqualTo(1);
+                assertThat(result.getNumber()).isZero();
+                assertThat(result.getSize()).isEqualTo(20);
+        }
+
+        @Test
         void findsAndCountsOnlyActiveActivationsForLicense() {
                 Product product = productRepository.save(
-                                new Product(owner,"Product", null));
+                                new Product(owner, "Product", null));
 
                 License targetLicense = licenseRepository.save(
                                 new License(
@@ -142,7 +214,7 @@ class MachineActivationRepositoryTest {
         @Test
         void allowsSameMachineToReactivateAfterDeactivation() {
                 Product product = productRepository.save(
-                                new Product(owner,"Product", null));
+                                new Product(owner, "Product", null));
 
                 License license = licenseRepository.save(
                                 new License(

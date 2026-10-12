@@ -21,7 +21,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import com.weng.licensehub.user.domain.UserAccount;
 import com.weng.licensehub.user.persistence.UserAccountRepository;
 import org.junit.jupiter.api.BeforeEach;
-
+import java.util.UUID;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers
@@ -73,7 +73,6 @@ class SecurityConfigurationIntegrationTest {
         @Test
         void authenticatedPostWithCsrfIsAllowed()
                         throws Exception {
-
 
                 mockMvc.perform(post("/api/products")
                                 .with(user("manager@example.com")
@@ -149,5 +148,27 @@ class SecurityConfigurationIntegrationTest {
                                                         "manager@example.com",
                                                         "{noop}unused"));
                 }
+        }
+
+        @Test
+        void activationHistoryRequiresAuthentication() throws Exception {
+                UUID licenseId = UUID.randomUUID();
+
+                mockMvc.perform(get(
+                                "/api/licenses/{licenseId}/activations",
+                                licenseId))
+                                .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        void authenticatedUserCanRequestActivationHistory() throws Exception {
+                UUID licenseId = UUID.randomUUID();
+
+                mockMvc.perform(get(
+                                "/api/licenses/{licenseId}/activations",
+                                licenseId)
+                                .with(user("manager@example.com")
+                                                .roles("USER")))
+                                .andExpect(status().isNotFound());
         }
 }
