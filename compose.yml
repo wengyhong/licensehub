@@ -32,6 +32,7 @@ services:
       LICENSEHUB_DB_URL: jdbc:postgresql://postgres:5432/licensehub
       LICENSEHUB_DB_USERNAME: licensehub_app
       LICENSEHUB_DB_PASSWORD: ${LICENSEHUB_DB_PASSWORD:?LICENSEHUB_DB_PASSWORD is required}
+      LICENSEHUB_ACTIVATION_RATE_LIMIT: ${LICENSEHUB_ACTIVATION_RATE_LIMIT:-60}
 
     ports:
       - "8080:8080"
