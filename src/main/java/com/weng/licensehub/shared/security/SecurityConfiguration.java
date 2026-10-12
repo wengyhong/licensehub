@@ -60,8 +60,15 @@ public class SecurityConfiguration {
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.GET, "/api/auth/csrf")
                                                 .permitAll()
+                                                .requestMatchers(
+                                                                "/v3/api-docs/**",
+                                                                "/v3/api-docs.yaml",
+                                                                "/swagger-ui/**",
+                                                                "/swagger-ui.html")
+                                                .permitAll()
                                                 .anyRequest()
                                                 .authenticated())
+
                                 .csrf(csrf -> csrf
                                                 .csrfTokenRepository(csrfTokenRepository)
                                                 .ignoringRequestMatchers(
@@ -69,10 +76,8 @@ public class SecurityConfiguration {
                                                                 "/api/activations/**"))
                                 .formLogin(AbstractHttpConfigurer::disable)
                                 .httpBasic(AbstractHttpConfigurer::disable)
-                                .logout(logout -> logout.logoutUrl
-                                        (
-                                                "/api/auth/logout"
-                                        ).logoutSuccessHandler(
+                                .logout(logout -> logout.logoutUrl(
+                                                "/api/auth/logout").logoutSuccessHandler(
                                                                 (request, response, authentication) -> response
                                                                                 .setStatus(HttpStatus.NO_CONTENT
                                                                                                 .value())
@@ -80,7 +85,6 @@ public class SecurityConfiguration {
                                 ).permitAll())
                                 .exceptionHandling(exceptions -> exceptions
                                                 .authenticationEntryPoint(unauthorized));
-
 
                 return http.build();
         }

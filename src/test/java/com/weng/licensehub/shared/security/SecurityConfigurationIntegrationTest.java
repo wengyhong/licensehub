@@ -237,4 +237,16 @@ class SecurityConfigurationIntegrationTest {
                                 .andExpect(jsonPath("$.detail")
                                                 .value("Invalid license key"));
         }
+
+        @Test
+        void openApiDocumentIsPublic() throws Exception {
+                mockMvc.perform(get("/v3/api-docs"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.openapi").isNotEmpty())
+                                .andExpect(jsonPath("$.info.title")
+                                                .value("LicenseHub API"))
+                                .andExpect(jsonPath("$.info.version")
+                                                .value("v1"))
+                                .andExpect(jsonPath("$.paths").exists());
+        }
 }
