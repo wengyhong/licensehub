@@ -1,11 +1,14 @@
 package com.weng.licensehub.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.weng.licensehub.user.domain.UserAccount;
+import com.weng.licensehub.user.persistence.UserAccountRepository;
 import java.util.Map;
-
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -17,213 +20,163 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
-
-import com.weng.licensehub.user.domain.UserAccount;
-import com.weng.licensehub.user.persistence.UserAccountRepository;
-
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers
 class ActivationFlowIntegrationTest {
-        @Autowired
-        private UserAccountRepository userAccountRepository;
-        @Container
-        @ServiceConnection
-        static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18-alpine");
+  @Autowired private UserAccountRepository userAccountRepository;
 
-        @Autowired
-        private MockMvc mockMvc;
+  @Container @ServiceConnection
+  static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18-alpine");
 
-        @Autowired
-        private ObjectMapper objectMapper;
+  @Autowired private MockMvc mockMvc;
 
-        private record IssuedLicenseDetails(
-                        String licenseId,
-                        String licenseKey) {
-        }
+  @Autowired private ObjectMapper objectMapper;
 
-        @Test
-        void completesActivationLifecycle() throws Exception {
+  private record IssuedLicenseDetails(String licenseId, String licenseKey) {}
 
-                userAccountRepository.save(
-                                new UserAccount(
-                                                "manager@example.com",
-                                                "{noop}unused"));
-                String productId = createProduct();
+  @Test
+  void completesActivationLifecycle() throws Exception {
 
-                IssuedLicenseDetails issued = issueLicense(productId);
-                String licenseKey = issued.licenseKey();
-                String firstActivationId = activateMachine(
-                                licenseKey,
-                                "integration-machine-001",
-                                "Integration laptop");
+    userAccountRepository.save(new UserAccount("manager@example.com", "{noop}unused"));
+    String productId = createProduct();
 
-                String repeatedActivationId = activateMachine(
-                                licenseKey,
-                                "integration-machine-001",
-                                "Integration laptop");
+    IssuedLicenseDetails issued = issueLicense(productId);
+    String licenseKey = issued.licenseKey();
+    String firstActivationId =
+        activateMachine(licenseKey, "integration-machine-001", "Integration laptop");
 
-                assertThat(repeatedActivationId)
-                                .isEqualTo(firstActivationId);
+    String repeatedActivationId =
+        activateMachine(licenseKey, "integration-machine-001", "Integration laptop");
 
-                deactivateMachine(
-                                licenseKey,
-                                "integration-machine-001");
+    assertThat(repeatedActivationId).isEqualTo(firstActivationId);
 
-                String reactivatedId = activateMachine(
-                                licenseKey,
-                                "integration-machine-001",
-                                "Integration laptop");
+    deactivateMachine(licenseKey, "integration-machine-001");
 
-                assertThat(reactivatedId)
-                                .isNotEqualTo(firstActivationId);
+    String reactivatedId =
+        activateMachine(licenseKey, "integration-machine-001", "Integration laptop");
 
-                mockMvc.perform(post(
-                                "/api/licenses/{licenseId}/revoke",
-                                issued.licenseId())
-                                .with(user("manager@example.com").roles("USER"))
-                                .with(csrf()))
-                                .andExpect(status().isNoContent());
+    assertThat(reactivatedId).isNotEqualTo(firstActivationId);
 
-                String requestBody = objectMapper.writeValueAsString(
-                                Map.of(
-                                                "licenseKey", licenseKey,
-                                                "machineFingerprint", "blocked-machine",
-                                                "machineName", "Blocked laptop"));
+    mockMvc
+        .perform(
+            post("/api/licenses/{licenseId}/revoke", issued.licenseId())
+                .with(user("manager@example.com").roles("USER"))
+                .with(csrf()))
+        .andExpect(status().isNoContent());
 
-                mockMvc.perform(post("/api/activations")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(requestBody))
-                                .andExpect(status().isForbidden());
-        }
+    String requestBody =
+        objectMapper.writeValueAsString(
+            Map.of(
+                "licenseKey", licenseKey,
+                "machineFingerprint", "blocked-machine",
+                "machineName", "Blocked laptop"));
 
-        private String createProduct() throws Exception {
-                String requestBody = objectMapper.writeValueAsString(
-                                Map.of(
-                                                "name",
-                                                "Integration Product",
-                                                "description",
-                                                "Full activation flow test"));
+    mockMvc
+        .perform(
+            post("/api/activations").contentType(MediaType.APPLICATION_JSON).content(requestBody))
+        .andExpect(status().isForbidden());
+  }
 
-                MvcResult result = mockMvc.perform(
-                                post("/api/products")
-                                                .with(user("manager@example.com")
-                                                                .roles("USER"))
-                                                .with(csrf())
-                                                .contentType(
-                                                                MediaType.APPLICATION_JSON)
-                                                .content(requestBody))
-                                .andExpect(status().isCreated())
-                                .andReturn();
+  private String createProduct() throws Exception {
+    String requestBody =
+        objectMapper.writeValueAsString(
+            Map.of("name", "Integration Product", "description", "Full activation flow test"));
 
-                JsonNode response = objectMapper.readTree(
-                                result.getResponse().getContentAsString());
+    MvcResult result =
+        mockMvc
+            .perform(
+                post("/api/products")
+                    .with(user("manager@example.com").roles("USER"))
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+            .andExpect(status().isCreated())
+            .andReturn();
 
-                String productId = response.get("id").asText();
+    JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
 
-                assertThat(productId).isNotBlank();
+    String productId = response.get("id").asText();
 
-                return productId;
-        }
+    assertThat(productId).isNotBlank();
 
-        private IssuedLicenseDetails issueLicense(String productId)
-                        throws Exception {
+    return productId;
+  }
 
-                String requestBody = objectMapper.writeValueAsString(
-                                Map.of(
-                                                "customerEmail",
-                                                "integration@example.com",
-                                                "maxActivations",
-                                                1));
+  private IssuedLicenseDetails issueLicense(String productId) throws Exception {
 
-                MvcResult result = mockMvc.perform(
-                                post(
-                                                "/api/products/{productId}/licenses",
-                                                productId)
-                                                .with(user("manager@example.com")
-                                                                .roles("USER"))
-                                                .with(csrf())
-                                                .contentType(
-                                                                MediaType.APPLICATION_JSON)
-                                                .content(requestBody))
-                                .andExpect(status().isCreated())
-                                .andReturn();
+    String requestBody =
+        objectMapper.writeValueAsString(
+            Map.of("customerEmail", "integration@example.com", "maxActivations", 1));
 
-                JsonNode response = objectMapper.readTree(
-                                result.getResponse().getContentAsString());
+    MvcResult result =
+        mockMvc
+            .perform(
+                post("/api/products/{productId}/licenses", productId)
+                    .with(user("manager@example.com").roles("USER"))
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+            .andExpect(status().isCreated())
+            .andReturn();
 
-                String licenseKey = response.get("licenseKey").asText();
+    JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
 
-                assertThat(licenseKey)
-                                .startsWith("LH_");
+    String licenseKey = response.get("licenseKey").asText();
 
-                assertThat(
-                                response.get("license")
-                                                .get("productId")
-                                                .asText())
-                                .isEqualTo(productId);
+    assertThat(licenseKey).startsWith("LH_");
 
-                return new IssuedLicenseDetails(
-                                response.get("license").get("id").asText(),
-                                response.get("licenseKey").asText());
+    assertThat(response.get("license").get("productId").asText()).isEqualTo(productId);
 
-        }
+    return new IssuedLicenseDetails(
+        response.get("license").get("id").asText(), response.get("licenseKey").asText());
+  }
 
-        private String activateMachine(
-                        String licenseKey,
-                        String fingerprint,
-                        String machineName)
-                        throws Exception {
+  private String activateMachine(String licenseKey, String fingerprint, String machineName)
+      throws Exception {
 
-                String requestBody = objectMapper.writeValueAsString(
-                                Map.of(
-                                                "licenseKey",
-                                                licenseKey,
-                                                "machineFingerprint",
-                                                fingerprint,
-                                                "machineName",
-                                                machineName));
+    String requestBody =
+        objectMapper.writeValueAsString(
+            Map.of(
+                "licenseKey",
+                licenseKey,
+                "machineFingerprint",
+                fingerprint,
+                "machineName",
+                machineName));
 
-                MvcResult result = mockMvc.perform(
-                                post("/api/activations")
-                                                .contentType(
-                                                                MediaType.APPLICATION_JSON)
-                                                .content(requestBody))
-                                .andExpect(status().isOk())
-                                .andReturn();
+    MvcResult result =
+        mockMvc
+            .perform(
+                post("/api/activations")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+            .andExpect(status().isOk())
+            .andReturn();
 
-                JsonNode response = objectMapper.readTree(
-                                result.getResponse().getContentAsString());
+    JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
 
-                String activationId = response.get("id").asText();
+    String activationId = response.get("id").asText();
 
-                assertThat(activationId).isNotBlank();
+    assertThat(activationId).isNotBlank();
 
-                return activationId;
-        }
+    return activationId;
+  }
 
-        private void deactivateMachine(
-                        String licenseKey,
-                        String fingerprint)
-                        throws Exception {
+  private void deactivateMachine(String licenseKey, String fingerprint) throws Exception {
 
-                String requestBody = objectMapper.writeValueAsString(
-                                Map.of(
-                                                "licenseKey",
-                                                licenseKey,
-                                                "machineFingerprint",
-                                                fingerprint));
+    String requestBody =
+        objectMapper.writeValueAsString(
+            Map.of("licenseKey", licenseKey, "machineFingerprint", fingerprint));
 
-                mockMvc.perform(
-                                post("/api/activations/deactivate")
-                                                .contentType(
-                                                                MediaType.APPLICATION_JSON)
-                                                .content(requestBody))
-                                .andExpect(status().isNoContent());
-        }
+    mockMvc
+        .perform(
+            post("/api/activations/deactivate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestBody))
+        .andExpect(status().isNoContent());
+  }
 }

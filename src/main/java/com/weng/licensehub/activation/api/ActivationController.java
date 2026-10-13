@@ -1,5 +1,8 @@
 package com.weng.licensehub.activation.api;
 
+import com.weng.licensehub.activation.application.ActivationService;
+import com.weng.licensehub.activation.domain.MachineActivation;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -7,52 +10,48 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.weng.licensehub.activation.application.ActivationService;
-
-import com.weng.licensehub.activation.domain.MachineActivation;
-
-import jakarta.validation.Valid;
-
 @RestController
 @RequestMapping("/api")
 public class ActivationController {
 
-    private final ActivationService activationService;
+  private final ActivationService activationService;
 
-    public ActivationController(ActivationService service) {
-        this.activationService = service;
-    }
+  public ActivationController(ActivationService service) {
+    this.activationService = service;
+  }
 
-    @PostMapping("/activations")
-    @ResponseStatus(HttpStatus.OK)
-    public ActivationResponse activate(
-            @Valid @RequestBody ActivationMachineRequest request
+  @PostMapping("/activations")
+  @ResponseStatus(HttpStatus.OK)
+  public ActivationResponse activate(@Valid @RequestBody ActivationMachineRequest request) {
 
-    ) {
-        MachineActivation activation = activationService.activate(request.licenseKey(), request.machineFingerprint(),
-                request.machineName());
+    MachineActivation activation =
+        activationService.activate(
+            request.licenseKey(), request.machineFingerprint(), request.machineName());
 
-        return (toResponse(activation));
-    }
+    return (toResponse(activation));
+  }
 
-    private ActivationResponse toResponse(MachineActivation activation) {
-        return new ActivationResponse(activation.getId(), activation.getLicense().getId(), activation.getMachineName(),
-                activation.getActivatedAt(), activation.getLastSeenAt());
-    }
+  private ActivationResponse toResponse(MachineActivation activation) {
+    return new ActivationResponse(
+        activation.getId(),
+        activation.getLicense().getId(),
+        activation.getMachineName(),
+        activation.getActivatedAt(),
+        activation.getLastSeenAt());
+  }
 
-    @PostMapping("/activations/deactivate")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deactivate(
+  @PostMapping("/activations/deactivate")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void deactivate(@Valid @RequestBody DeactivateMachineRequest request) {
 
-            @Valid @RequestBody DeactivateMachineRequest request) {
-        activationService.deactivate(request.licenseKey(), request.machineFingerprint());
-    }
+    activationService.deactivate(request.licenseKey(), request.machineFingerprint());
+  }
 
-    @PostMapping("/activations/validate")
-    public ActivationResponse validate(@Valid @RequestBody ValidateActivationRequest request) {
-        MachineActivation activation = activationService.validate(request.licenseKey(), request.machineFingerprint());
+  @PostMapping("/activations/validate")
+  public ActivationResponse validate(@Valid @RequestBody ValidateActivationRequest request) {
+    MachineActivation activation =
+        activationService.validate(request.licenseKey(), request.machineFingerprint());
 
-        return toResponse(activation);
-
-    }
+    return toResponse(activation);
+  }
 }

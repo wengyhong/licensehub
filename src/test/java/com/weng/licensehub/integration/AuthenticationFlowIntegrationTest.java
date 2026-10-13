@@ -25,127 +25,118 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @Testcontainers
 class AuthenticationFlowIntegrationTest {
 
-    @Container
-    @ServiceConnection
-    static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18-alpine");
+  @Container @ServiceConnection
+  static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18-alpine");
 
-    @Autowired
-    private MockMvc mockMvc;
+  @Autowired private MockMvc mockMvc;
 
-    @Test
-    void logsInAndUsesSessionForProtectedRequest()
-            throws Exception {
+  @Test
+  void logsInAndUsesSessionForProtectedRequest() throws Exception {
 
-        mockMvc.perform(post("/api/auth/register")
+    mockMvc
+        .perform(
+            post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""
+                .content(
+                    """
                         {
                           "email": "alice@example.com",
                           "password": "correct-horse-battery-staple"
                         }
                         """))
-                .andExpect(status().isCreated());
+        .andExpect(status().isCreated());
 
-        MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf"))
-                .andExpect(status().isOk())
-                .andReturn();
+    MvcResult csrfResult =
+        mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
 
-        MockHttpSession session = (MockHttpSession) csrfResult
-                .getRequest()
-                .getSession(false);
+    MockHttpSession session = (MockHttpSession) csrfResult.getRequest().getSession(false);
 
-        CsrfToken csrfToken = (CsrfToken) csrfResult
-                .getRequest()
-                .getAttribute(CsrfToken.class.getName());
+    CsrfToken csrfToken =
+        (CsrfToken) csrfResult.getRequest().getAttribute(CsrfToken.class.getName());
 
-        assertThat(session).isNotNull();
-        assertThat(csrfToken).isNotNull();
+    assertThat(session).isNotNull();
+    assertThat(csrfToken).isNotNull();
 
-        String anonymousSessionId = session.getId();
-        String anonymousCsrfToken = csrfToken.getToken();
+    String anonymousSessionId = session.getId();
+    String anonymousCsrfToken = csrfToken.getToken();
 
-        mockMvc.perform(post("/api/auth/login")
+    mockMvc
+        .perform(
+            post("/api/auth/login")
                 .session(session)
-                .header(
-                        csrfToken.getHeaderName(),
-                        anonymousCsrfToken)
+                .header(csrfToken.getHeaderName(), anonymousCsrfToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""
+                .content(
+                    """
                         {
                           "email": "ALICE@example.com",
                           "password": "correct-horse-battery-staple"
                         }
                         """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email")
-                        .value("alice@example.com"));
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.email").value("alice@example.com"));
 
-        mockMvc.perform(get("/api/auth/me")
-                .session(session))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email")
-                        .value("alice@example.com"));
-        assertThat(session.getId())
-                .isNotEqualTo(anonymousSessionId);
+    mockMvc
+        .perform(get("/api/auth/me").session(session))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.email").value("alice@example.com"));
+    assertThat(session.getId()).isNotEqualTo(anonymousSessionId);
 
-        mockMvc.perform(get("/api/products")
-                .session(session))
-                .andExpect(status().isOk());
+    mockMvc.perform(get("/api/products").session(session)).andExpect(status().isOk());
 
-        mockMvc.perform(post("/api/products")
+    mockMvc
+        .perform(
+            post("/api/products")
                 .session(session)
-                .header(
-                        csrfToken.getHeaderName(),
-                        anonymousCsrfToken)
+                .header(csrfToken.getHeaderName(), anonymousCsrfToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""
+                .content(
+                    """
                         {
                           "name": "Rejected Product",
                           "description": "Uses the old CSRF token"
                         }
                         """))
-                .andExpect(status().isForbidden());
+        .andExpect(status().isForbidden());
 
-        MvcResult refreshedCsrfResult = mockMvc.perform(get("/api/auth/csrf")
-                .session(session))
-                .andExpect(status().isOk())
-                .andReturn();
+    MvcResult refreshedCsrfResult =
+        mockMvc
+            .perform(get("/api/auth/csrf").session(session))
+            .andExpect(status().isOk())
+            .andReturn();
 
-        CsrfToken authenticatedCsrfToken = (CsrfToken) refreshedCsrfResult
-                .getRequest()
-                .getAttribute(CsrfToken.class.getName());
+    CsrfToken authenticatedCsrfToken =
+        (CsrfToken) refreshedCsrfResult.getRequest().getAttribute(CsrfToken.class.getName());
 
-        assertThat(authenticatedCsrfToken).isNotNull();
+    assertThat(authenticatedCsrfToken).isNotNull();
 
-        String authenticatedCsrfTokenValue = authenticatedCsrfToken.getToken();
-        mockMvc.perform(post("/api/products")
+    String authenticatedCsrfTokenValue = authenticatedCsrfToken.getToken();
+    mockMvc
+        .perform(
+            post("/api/products")
                 .session(session)
-                .header(
-                        authenticatedCsrfToken.getHeaderName(),
-                        authenticatedCsrfTokenValue)
+                .header(authenticatedCsrfToken.getHeaderName(), authenticatedCsrfTokenValue)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""
+                .content(
+                    """
                         {
                           "name": "Authenticated Product",
                           "description": "Uses the refreshed CSRF token"
                         }
                         """))
-                .andExpect(status().isCreated());
+        .andExpect(status().isCreated());
 
-        mockMvc.perform(get("/api/products")
-                .session(session))
-                .andExpect(status().isOk());
+    mockMvc.perform(get("/api/products").session(session)).andExpect(status().isOk());
 
-        mockMvc.perform(post("/api/auth/logout")
+    mockMvc
+        .perform(
+            post("/api/auth/logout")
                 .session(session)
-                .header(
-                        authenticatedCsrfToken.getHeaderName(),
-                        authenticatedCsrfTokenValue))
-                .andExpect(status().isNoContent());
+                .header(authenticatedCsrfToken.getHeaderName(), authenticatedCsrfTokenValue))
+        .andExpect(status().isNoContent());
 
-        assertThat(session.isInvalid()).isTrue();
+    assertThat(session.isInvalid()).isTrue();
 
-        mockMvc.perform(get("/api/auth/me"))
-                .andExpect(status().isUnauthorized());
-    }
+    mockMvc.perform(get("/api/auth/me")).andExpect(status().isUnauthorized());
+  }
 }
