@@ -3,8 +3,9 @@ package com.weng.licensehub.user.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.weng.licensehub.user.domain.UserAccount;
+import jakarta.persistence.EntityManager;
 import java.util.Optional;
-
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -15,59 +16,41 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-import com.weng.licensehub.user.domain.UserAccount;
-
-import jakarta.persistence.EntityManager;
-
 @DataJpaTest
 @Testcontainers
-@AutoConfigureTestDatabase(
-        replace = AutoConfigureTestDatabase.Replace.NONE)
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 class UserAccountRepositoryTest {
 
-    @Container
-    @ServiceConnection
-    static final PostgreSQLContainer postgres =
-            new PostgreSQLContainer("postgres:18-alpine");
+  @Container @ServiceConnection
+  static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18-alpine");
 
-    @Autowired
-    private UserAccountRepository userAccountRepository;
+  @Autowired private UserAccountRepository userAccountRepository;
 
-    @Autowired
-    private EntityManager entityManager;
+  @Autowired private EntityManager entityManager;
 
-    @Test
-    void findsUserByEmailIgnoringCase() {
-        UserAccount saved = userAccountRepository.saveAndFlush(
-                new UserAccount(
-                        "Alice@Example.com",
-                        "example-password-hash"));
-
-        entityManager.clear();
-
-        Optional<UserAccount> result =
-                userAccountRepository.findByEmailIgnoreCase(
-                        "alice@example.com");
-
-        assertThat(result).isPresent();
-        assertThat(result.orElseThrow().getId())
-                .isEqualTo(saved.getId());
-        assertThat(result.orElseThrow().getEmail())
-                .isEqualTo("Alice@Example.com");
-    }
-
-    @Test
-    void rejectsEmailThatDiffersOnlyByCase() {
+  @Test
+  void findsUserByEmailIgnoringCase() {
+    UserAccount saved =
         userAccountRepository.saveAndFlush(
-                new UserAccount(
-                        "Alice@Example.com",
-                        "first-password-hash"));
+            new UserAccount("Alice@Example.com", "example-password-hash"));
 
-        assertThatThrownBy(() ->
+    entityManager.clear();
+
+    Optional<UserAccount> result = userAccountRepository.findByEmailIgnoreCase("alice@example.com");
+
+    assertThat(result).isPresent();
+    assertThat(result.orElseThrow().getId()).isEqualTo(saved.getId());
+    assertThat(result.orElseThrow().getEmail()).isEqualTo("Alice@Example.com");
+  }
+
+  @Test
+  void rejectsEmailThatDiffersOnlyByCase() {
+    userAccountRepository.saveAndFlush(new UserAccount("Alice@Example.com", "first-password-hash"));
+
+    assertThatThrownBy(
+            () ->
                 userAccountRepository.saveAndFlush(
-                        new UserAccount(
-                                "ALICE@example.com",
-                                "second-password-hash")))
-                .isInstanceOf(DataIntegrityViolationException.class);
-    }
+                    new UserAccount("ALICE@example.com", "second-password-hash")))
+        .isInstanceOf(DataIntegrityViolationException.class);
+  }
 }

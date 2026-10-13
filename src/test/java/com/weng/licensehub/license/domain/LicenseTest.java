@@ -2,61 +2,52 @@ package com.weng.licensehub.license.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.Instant;
-
-import org.junit.jupiter.api.Test;
-
 import com.weng.licensehub.product.domain.Product;
 import com.weng.licensehub.user.domain.UserAccount;
+import java.time.Instant;
+import org.junit.jupiter.api.Test;
 
 class LicenseTest {
-    UserAccount owner = new UserAccount("owner@example.com", "test-password-hash");
+  UserAccount owner = new UserAccount("owner@example.com", "test-password-hash");
 
-    Product product = new Product(owner, "Test Product", null);
-    private static final Instant NOW = Instant.parse("2026-09-28T10:00:00Z");
+  Product product = new Product(owner, "Test Product", null);
+  private static final Instant NOW = Instant.parse("2026-09-28T10:00:00Z");
 
-    @Test
-    void activeUnexpiredLicenseCanActivate() {
-        License license = createLicense(
-                NOW.plusSeconds(60));
+  @Test
+  void activeUnexpiredLicenseCanActivate() {
+    License license = createLicense(NOW.plusSeconds(60));
 
-        assertThat(license.canActivateAt(NOW)).isTrue();
-    }
+    assertThat(license.canActivateAt(NOW)).isTrue();
+  }
 
-    @Test
-    void licenseCannotActivateAtItsExpiryTime() {
-        License license = createLicense(NOW);
+  @Test
+  void licenseCannotActivateAtItsExpiryTime() {
+    License license = createLicense(NOW);
 
-        assertThat(license.isExpiredAt(NOW)).isTrue();
-        assertThat(license.canActivateAt(NOW)).isFalse();
-    }
+    assertThat(license.isExpiredAt(NOW)).isTrue();
+    assertThat(license.canActivateAt(NOW)).isFalse();
+  }
 
-    @Test
-    void licenseWithoutExpiryCanActivate() {
-        License license = createLicense(null);
+  @Test
+  void licenseWithoutExpiryCanActivate() {
+    License license = createLicense(null);
 
-        assertThat(license.isExpiredAt(NOW)).isFalse();
-        assertThat(license.canActivateAt(NOW)).isTrue();
-    }
+    assertThat(license.isExpiredAt(NOW)).isFalse();
+    assertThat(license.canActivateAt(NOW)).isTrue();
+  }
 
-    private License createLicense(Instant expiresAt) {
-        return new License(
-                product,
-                "0123456789ABCDEF",
-                "a".repeat(64),
-                "customer@example.com",
-                1,
-                expiresAt);
-    }
+  private License createLicense(Instant expiresAt) {
+    return new License(
+        product, "0123456789ABCDEF", "a".repeat(64), "customer@example.com", 1, expiresAt);
+  }
 
-    @Test
-    void revokeChangesStatusToRevoked() {
+  @Test
+  void revokeChangesStatusToRevoked() {
 
-        License license = createLicense(null);
+    License license = createLicense(null);
 
-        license.revoke();
+    license.revoke();
 
-        assertThat(license.getStatus())
-                .isEqualTo(LicenseStatus.REVOKED);
-    }
+    assertThat(license.getStatus()).isEqualTo(LicenseStatus.REVOKED);
+  }
 }

@@ -8,23 +8,18 @@ import org.springframework.core.Ordered;
 @Configuration(proxyBeanMethods = false)
 public class ActivationRateLimitConfiguration {
 
-    @Bean
-    FilterRegistrationBean<ActivationRateLimitFilter>
-            activationRateLimitFilterRegistration(
-                    ActivationRateLimiter rateLimiter) {
+  @Bean
+  FilterRegistrationBean<ActivationRateLimitFilter> activationRateLimitFilterRegistration(
+      ActivationRateLimiter rateLimiter) {
 
-        var registration =
-                new FilterRegistrationBean<ActivationRateLimitFilter>();
+    var registration = new FilterRegistrationBean<ActivationRateLimitFilter>();
 
-        registration.setFilter(
-                new ActivationRateLimitFilter(rateLimiter));
+    registration.setFilter(new ActivationRateLimitFilter(rateLimiter));
 
-        registration.addUrlPatterns(
-                "/api/activations",
-                "/api/activations/*");
+    registration.addUrlPatterns("/api/activations", "/api/activations/*");
 
-        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+    registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
 
-        return registration;
-    }
+    return registration;
+  }
 }

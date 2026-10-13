@@ -1,186 +1,168 @@
 package com.weng.licensehub.shared.api;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-import org.springframework.boot.webmvc.autoconfigure.WebMvcProperties.Problemdetails;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-import com.weng.licensehub.license.application.LicenseNotFoundException;
-import com.weng.licensehub.product.application.ProductHasLicensesException;
-import com.weng.licensehub.product.application.ProductNotFoundException;
-import com.weng.licensehub.user.application.EmailAlreadyRegisteredException;
 import com.weng.licensehub.activation.application.ActivationLimitExceededException;
 import com.weng.licensehub.activation.application.LicenseNotActivatableException;
 import com.weng.licensehub.activation.application.MachineActivationNotFoundException;
 import com.weng.licensehub.activation.application.MachineNotActivatedException;
 import com.weng.licensehub.license.application.InvalidLicenseKeyException;
+import com.weng.licensehub.license.application.LicenseNotFoundException;
+import com.weng.licensehub.product.application.ProductHasLicensesException;
+import com.weng.licensehub.product.application.ProductNotFoundException;
+import com.weng.licensehub.user.application.EmailAlreadyRegisteredException;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
-    @ExceptionHandler(ProductNotFoundException.class)
-    public ProblemDetail handleProductNotFound(ProductNotFoundException exception) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+  @ExceptionHandler(ProductNotFoundException.class)
+  public ProblemDetail handleProductNotFound(ProductNotFoundException exception) {
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
 
-        problem.setTitle("Product not found");
+    problem.setTitle("Product not found");
 
-        return problem;
+    return problem;
+  }
 
-    }
+  @ExceptionHandler(LicenseNotFoundException.class)
+  public ProblemDetail handleLicenseNotFound(LicenseNotFoundException exception) {
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
 
-    @ExceptionHandler(LicenseNotFoundException.class)
-    public ProblemDetail handleLicenseNotFound(LicenseNotFoundException exception) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+    problem.setTitle("License not found");
 
-        problem.setTitle("License not found");
+    return problem;
+  }
 
-        return problem;
+  @ExceptionHandler(InvalidLicenseKeyException.class)
+  public ProblemDetail handleInvalidLicenseKey(InvalidLicenseKeyException exception) {
 
-    }
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, exception.getMessage());
 
-    @ExceptionHandler(InvalidLicenseKeyException.class)
-    public ProblemDetail handleInvalidLicenseKey(
-            InvalidLicenseKeyException exception) {
+    problem.setTitle("Invalid license key");
 
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.UNAUTHORIZED,
-                exception.getMessage());
+    return problem;
+  }
 
-        problem.setTitle("Invalid license key");
+  @ExceptionHandler(LicenseNotActivatableException.class)
+  public ProblemDetail handleLicenseNotActivatable(LicenseNotActivatableException exception) {
 
-        return problem;
-    }
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, exception.getMessage());
 
-    @ExceptionHandler(LicenseNotActivatableException.class)
-    public ProblemDetail handleLicenseNotActivatable(
-            LicenseNotActivatableException exception) {
+    problem.setTitle("License not activatable");
 
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.FORBIDDEN,
-                exception.getMessage());
+    return problem;
+  }
 
-        problem.setTitle("License not activatable");
+  @ExceptionHandler(ActivationLimitExceededException.class)
+  public ProblemDetail handleActivationLimitExceeded(ActivationLimitExceededException exception) {
 
-        return problem;
-    }
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
 
-    @ExceptionHandler(ActivationLimitExceededException.class)
-    public ProblemDetail handleActivationLimitExceeded(
-            ActivationLimitExceededException exception) {
+    problem.setTitle("Activation limit exceeded");
 
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.CONFLICT,
-                exception.getMessage());
+    return problem;
+  }
 
-        problem.setTitle("Activation limit exceeded");
+  @ExceptionHandler(EmailAlreadyRegisteredException.class)
+  public ProblemDetail handleEmailAlreadyRegistered(EmailAlreadyRegisteredException exception) {
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
 
-        return problem;
-    }
+    problem.setTitle("Email already registered");
 
-    @ExceptionHandler(EmailAlreadyRegisteredException.class)
-    public ProblemDetail handleEmailAlreadyRegistered(
-            EmailAlreadyRegisteredException exception) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.CONFLICT,
-                exception.getMessage());
+    return problem;
+  }
 
-        problem.setTitle("Email already registered");
+  @ExceptionHandler(AuthenticationException.class)
+  public ProblemDetail handleAuthenticationFailure(AuthenticationException exception) {
 
-        return problem;
-    }
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Invalid email or password");
 
-    @ExceptionHandler(AuthenticationException.class)
-    public ProblemDetail handleAuthenticationFailure(
-            AuthenticationException exception) {
+    problem.setTitle("Authentication failed");
 
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.UNAUTHORIZED,
-                "Invalid email or password");
+    return problem;
+  }
 
-        problem.setTitle("Authentication failed");
+  @ExceptionHandler(ProductHasLicensesException.class)
+  public ProblemDetail handleProductHasLicenses(ProductHasLicensesException exception) {
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
 
-        return problem;
-    }
+    problem.setTitle("Product has existing licenses");
 
-    @ExceptionHandler(ProductHasLicensesException.class)
-    public ProblemDetail handleProductHasLicenses(ProductHasLicensesException exception) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+    return problem;
+  }
 
-        problem.setTitle("Product has existing licenses");
+  @ExceptionHandler(MethodArgumentNotValidException.class)
+  public ProblemDetail handleValidation(MethodArgumentNotValidException exception) {
 
-        return problem;
-    }
+    Map<String, String> errors =
+        exception.getBindingResult().getFieldErrors().stream()
+            .collect(
+                Collectors.toMap(
+                    error -> error.getField(),
+                    error ->
+                        error.getDefaultMessage() == null
+                            ? "Invalid value"
+                            : error.getDefaultMessage(),
+                    (first, ignored) -> first,
+                    LinkedHashMap::new));
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ProblemDetail handleValidation(
-            MethodArgumentNotValidException exception) {
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "One or more fields are invalid");
 
-        Map<String, String> errors = exception
-                .getBindingResult()
-                .getFieldErrors()
-                .stream()
-                .collect(Collectors.toMap(
-                        error -> error.getField(),
-                        error -> error.getDefaultMessage() == null
-                                ? "Invalid value"
-                                : error.getDefaultMessage(),
-                        (first, ignored) -> first,
-                        LinkedHashMap::new));
+    problem.setTitle("Validation failed");
+    problem.setProperty("errors", errors);
 
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.BAD_REQUEST,
-                "One or more fields are invalid");
+    return problem;
+  }
 
-        problem.setTitle("Validation failed");
-        problem.setProperty("errors", errors);
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  public ProblemDetail handleUnreadableRequest(HttpMessageNotReadableException exception) {
 
-        return problem;
-    }
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(
+            HttpStatus.BAD_REQUEST, "Request body is missing or contains invalid JSON");
 
-    @ExceptionHandler(HttpMessageNotReadableException.class)
+    problem.setTitle(("Malformed request"));
 
-    public ProblemDetail handleUnreadableRequest(HttpMessageNotReadableException exception) {
+    return problem;
+  }
 
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
-                "Request body is missing or contains invalid JSON");
+  @ExceptionHandler(MachineActivationNotFoundException.class)
+  public ProblemDetail handleMachineActivationNotFound(
+      MachineActivationNotFoundException exception) {
 
-        problem.setTitle(("Malformed request"));
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
 
-        return problem;
-    }
+    problem.setTitle("Machine activation not found");
 
-    @ExceptionHandler(MachineActivationNotFoundException.class)
-    public ProblemDetail handleMachineActivationNotFound(
-            MachineActivationNotFoundException exception) {
+    return problem;
+  }
 
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.NOT_FOUND,
-                exception.getMessage());
+  @ExceptionHandler(MachineNotActivatedException.class)
+  public ProblemDetail handleMachineNotActivated(MachineNotActivatedException exception) {
 
-        problem.setTitle("Machine activation not found");
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, exception.getMessage());
 
-        return problem;
-    }
+    problem.setTitle("Machine not activated");
 
-    @ExceptionHandler(MachineNotActivatedException.class)
-    public ProblemDetail handleMachineNotActivated(
-            MachineNotActivatedException exception) {
-
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.FORBIDDEN,
-                exception.getMessage());
-
-        problem.setTitle("Machine not activated");
-
-        return problem;
-    }
-
+    return problem;
+  }
 }

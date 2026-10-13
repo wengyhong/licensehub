@@ -1,9 +1,5 @@
 package com.weng.licensehub.user.domain;
 
-import java.time.Instant;
-import java.util.UUID;
-
-import jakarta.annotation.Generated;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -12,77 +8,75 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "users")
 public class UserAccount {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.UUID)
+  private UUID id;
 
-    @Column(nullable = false, length = 320)
-    private  String email;
+  @Column(nullable = false, length = 320)
+  private String email;
 
-    @Column(name = "password_hash", length = 255, nullable = false)
-    private String passwordHash;
-    @Column(name = "created_at", nullable = false, updatable = false)
+  @Column(name = "password_hash", length = 255, nullable = false)
+  private String passwordHash;
 
-    private Instant createdAt;
-    @Column(name = "updated_at", nullable = false)
+  @Column(name = "created_at", nullable = false, updatable = false)
+  private Instant createdAt;
 
-    private Instant updatedAt;
+  @Column(name = "updated_at", nullable = false)
+  private Instant updatedAt;
 
-    public UserAccount(String email, String passwordHash)
-    {
+  public UserAccount(String email, String passwordHash) {
 
-        if (email == null || email.isBlank()) {
-            throw new IllegalArgumentException("email must not be blank");
-        }
-
-        if (passwordHash == null || passwordHash.isBlank()) {
-            throw new IllegalArgumentException("passwordHash must not be blank");
-        }
-
-        this.email = email.strip();
-        this.passwordHash = passwordHash;
-    }
-    protected UserAccount() {
-
-
+    if (email == null || email.isBlank()) {
+      throw new IllegalArgumentException("email must not be blank");
     }
 
-    @PrePersist
-    void prePersist() {
-        Instant now = Instant.now();
-        createdAt = now;
-        updatedAt = now;
+    if (passwordHash == null || passwordHash.isBlank()) {
+      throw new IllegalArgumentException("passwordHash must not be blank");
     }
 
-    @PreUpdate
-    void preUpdate() {
-        Instant now = Instant.now();
-        updatedAt = now;
-    }
+    this.email = email.strip();
+    this.passwordHash = passwordHash;
+  }
 
-    public UUID getId() {
-        return id;
-    }
+  protected UserAccount() {}
 
-    public String getEmail() {
-        return email;
-    }
+  @PrePersist
+  void prePersist() {
+    Instant now = Instant.now();
+    createdAt = now;
+    updatedAt = now;
+  }
 
-    public String getPasswordHash() {
-        return passwordHash;
-    }
+  @PreUpdate
+  void preUpdate() {
+    Instant now = Instant.now();
+    updatedAt = now;
+  }
 
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
+  public UUID getId() {
+    return id;
+  }
 
-    public Instant getUpdatedAt() {
-        return updatedAt;
-    }
+  public String getEmail() {
+    return email;
+  }
 
+  public String getPasswordHash() {
+    return passwordHash;
+  }
+
+  public Instant getCreatedAt() {
+    return createdAt;
+  }
+
+  public Instant getUpdatedAt() {
+    return updatedAt;
+  }
 }
