@@ -41,13 +41,18 @@ public class ActivationController {
     }
 
     @PostMapping("/activations/deactivate")
-    @ResponseStatus (HttpStatus.NO_CONTENT)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deactivate(
 
-        @Valid
-        @RequestBody
-        DeactivateMachineRequest request)
-        {
-            activationService.deactivate(request.licenseKey(), request.machineFingerprint());
-        }
+            @Valid @RequestBody DeactivateMachineRequest request) {
+        activationService.deactivate(request.licenseKey(), request.machineFingerprint());
+    }
+
+    @PostMapping("/activations/validate")
+    public ActivationResponse validate(@Valid @RequestBody ValidateActivationRequest request) {
+        MachineActivation activation = activationService.validate(request.licenseKey(), request.machineFingerprint());
+
+        return toResponse(activation);
+
+    }
 }

@@ -1,0 +1,13 @@
+package com.weng.licensehub.product.api;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record UpdateProductRequest(
+        @NotBlank
+        @Size (max = 150)
+        String name,
+
+        @Size(max = 1000)
+        String description) {
+}

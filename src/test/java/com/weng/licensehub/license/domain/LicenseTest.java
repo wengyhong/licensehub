@@ -7,11 +7,13 @@ import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
 import com.weng.licensehub.product.domain.Product;
+import com.weng.licensehub.user.domain.UserAccount;
 
 class LicenseTest {
+    UserAccount owner = new UserAccount("owner@example.com", "test-password-hash");
 
-    private static final Instant NOW =
-            Instant.parse("2026-09-28T10:00:00Z");
+    Product product = new Product(owner, "Test Product", null);
+    private static final Instant NOW = Instant.parse("2026-09-28T10:00:00Z");
 
     @Test
     void activeUnexpiredLicenseCanActivate() {
@@ -39,11 +41,22 @@ class LicenseTest {
 
     private License createLicense(Instant expiresAt) {
         return new License(
-                new Product("Product", null),
+                product,
                 "0123456789ABCDEF",
                 "a".repeat(64),
                 "customer@example.com",
                 1,
                 expiresAt);
+    }
+
+    @Test
+    void revokeChangesStatusToRevoked() {
+
+        License license = createLicense(null);
+
+        license.revoke();
+
+        assertThat(license.getStatus())
+                .isEqualTo(LicenseStatus.REVOKED);
     }
 }

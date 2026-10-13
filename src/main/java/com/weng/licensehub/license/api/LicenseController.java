@@ -3,8 +3,12 @@ package com.weng.licensehub.license.api;
 import java.util.List;
 import java.util.UUID;
 
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,8 +21,10 @@ import com.weng.licensehub.license.application.IssuedLicense;
 
 import com.weng.licensehub.license.application.LicenseService;
 import com.weng.licensehub.license.domain.License;
+import com.weng.licensehub.shared.api.PagedResponse;
 
 import jakarta.validation.Valid;
+import java.security.Principal;
 
 @RestController
 @RequestMapping("/api")
@@ -35,8 +41,10 @@ public class LicenseController {
     public IssuedLicenseResponse issue(
             @PathVariable UUID productId,
 
-            @Valid @RequestBody CreateLicenseRequest request) {
-        IssuedLicense issued = licenseService.issue(productId, request.customerEmail(), request.maxActivations(),
+            @Valid @RequestBody CreateLicenseRequest request,
+            Principal principal) {
+        IssuedLicense issued = licenseService.issueForOwner(productId, principal.getName(), request.customerEmail(),
+                request.maxActivations(),
                 request.expiresAt());
 
         return new IssuedLicenseResponse(toResponse(issued.license()), issued.fullKey());
@@ -49,13 +57,22 @@ public class LicenseController {
     }
 
     @GetMapping("/products/{productId}/licenses")
-    public List<LicenseResponse> findAllByProductId(@PathVariable UUID productId)
-    {
-        return licenseService.findAllByProductId(productId).stream().map(this::toResponse).toList();
+    public PagedResponse<LicenseResponse> findAllByProductId(@PathVariable UUID productId, Principal principal, @PageableDefault (size = 20, sort ="createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return PagedResponse.from(licenseService.findAllByProductIdForOwner(productId, principal.getName(), pageable).map(this::toResponse));
     }
+
     @GetMapping("/licenses/{licenseId}")
-    public LicenseResponse findById(@PathVariable UUID licenseId)
-    {
-        return toResponse(licenseService.getById(licenseId));
+    public LicenseResponse findById(@PathVariable UUID licenseId, Principal principal) {
+        return toResponse(licenseService.getByIdForOwner(licenseId, principal.getName()));
+    }
+
+    @PostMapping("/licenses/{licenseId}/revoke")
+    public ResponseEntity<Void> revoke(
+            @PathVariable UUID licenseId,
+            Principal principal) {
+        licenseService.revokeForOwner(licenseId, principal.getName());
+
+        return ResponseEntity.noContent().build();
+
     }
 }

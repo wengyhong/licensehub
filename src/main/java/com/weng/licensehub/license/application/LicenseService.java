@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,59 +14,122 @@ import com.weng.licensehub.license.persistence.LicenseRepository;
 import com.weng.licensehub.product.application.ProductNotFoundException;
 import com.weng.licensehub.product.domain.Product;
 import com.weng.licensehub.product.persistence.ProductRepository;
+import com.weng.licensehub.user.domain.UserAccount;
+import com.weng.licensehub.user.persistence.UserAccountRepository;
+
 @Service
 public class LicenseService {
 
-    private final LicenseRepository licenseRepository;
-    private final ProductRepository productRepository;
-    private final LicenseKeyGenerator licenseKeyGenerator;
+        private final LicenseRepository licenseRepository;
+        private final ProductRepository productRepository;
+        private final LicenseKeyGenerator licenseKeyGenerator;
+        private final UserAccountRepository userAccountRepository;
 
-    public LicenseService(
-        LicenseRepository licenseRepo,
-        ProductRepository productRepo,
-        LicenseKeyGenerator generator) {
+        public LicenseService(
+                        LicenseRepository licenseRepo,
+                        ProductRepository productRepo,
+                        LicenseKeyGenerator generator,
+                        UserAccountRepository userAccountRepository) {
 
-        this.licenseRepository = licenseRepo;
-        this.productRepository = productRepo;
-        this.licenseKeyGenerator = generator;
+                this.licenseRepository = licenseRepo;
+                this.productRepository = productRepo;
+                this.licenseKeyGenerator = generator;
+                this.userAccountRepository = userAccountRepository;
 
         }
 
-    @Transactional
-    public IssuedLicense issue(
-
-        UUID productId,
-        String customerEmail,
-        int maxActivations,
-        Instant expiresAt
-    ){
-
-        Product product = productRepository.findById(productId).orElseThrow(()-> new ProductNotFoundException(productId));
-
-        GeneratedLicenseKey generatedKey = licenseKeyGenerator.generate();
-
-        License license = new License(product, generatedKey.keyId(), generatedKey.keyHash(), customerEmail.trim(), maxActivations, expiresAt);
-
-        License savedLicense = licenseRepository.save(license);
-
-        return new IssuedLicense(savedLicense, generatedKey.fullKey());
-
-    }
-
-    @Transactional (readOnly = true)
-    public License getById(UUID licenseId)
-    {
-        return licenseRepository.findById(licenseId).orElseThrow(()-> new LicenseNotFoundException(licenseId));
-    }
-    @Transactional (readOnly = true)
-    public List<License> findAllByProductId(UUID productId)
-    {
-        if(!productRepository.existsById(productId))
-        {
-            throw new ProductNotFoundException(productId);
+        private UserAccount requireOwner(String ownerEmail) {
+                return userAccountRepository
+                                .findByEmailIgnoreCase(ownerEmail)
+                                .orElseThrow(() -> new IllegalStateException(
+                                                "Authenticated user account was not found"));
         }
 
-        return licenseRepository.findAllByProduct_IdOrderByCreatedAtDesc(productId);
-    }
+        private Product requireOwnedProduct(
+                        UUID productId,
+                        String ownerEmail) {
+
+                UserAccount owner = requireOwner(ownerEmail);
+
+                return productRepository
+                                .findByIdAndOwner_Id(
+                                                productId,
+                                                owner.getId())
+                                .orElseThrow(() -> new ProductNotFoundException(productId));
+        }
+
+        private IssuedLicense issueForProduct(
+                        Product product,
+                        String customerEmail,
+                        int maxActivations,
+                        Instant expiresAt) {
+
+                GeneratedLicenseKey generatedKey = licenseKeyGenerator.generate();
+
+                License license = new License(
+                                product,
+                                generatedKey.keyId(),
+                                generatedKey.keyHash(),
+                                customerEmail.trim(),
+                                maxActivations,
+                                expiresAt);
+
+                License savedLicense = licenseRepository.save(license);
+
+                return new IssuedLicense(
+                                savedLicense,
+                                generatedKey.fullKey());
+        }
+
+        @Transactional
+        public IssuedLicense issueForOwner(
+                        UUID productId,
+                        String ownerEmail,
+                        String customerEmail,
+                        int maxActivations,
+                        Instant expiresAt) {
+
+                Product product = requireOwnedProduct(
+                                productId,
+                                ownerEmail);
+
+                return issueForProduct(
+                                product,
+                                customerEmail,
+                                maxActivations,
+                                expiresAt);
+        }
+
+        @Transactional(readOnly = true)
+        public Page<License> findAllByProductIdForOwner(
+                        UUID productId,
+                        String ownerEmail, Pageable pageable) {
+
+                requireOwnedProduct(productId, ownerEmail);
+
+                return licenseRepository
+                                .findAllByProduct_Id(
+                                                productId,pageable);
+        }
+
+        @Transactional(readOnly = true)
+        public License getByIdForOwner(UUID licenseId, String email) {
+                UserAccount owner = requireOwner(email);
+
+                return licenseRepository.findByIdAndProduct_Owner_Id(licenseId, owner.getId())
+                                .orElseThrow(() -> new LicenseNotFoundException(licenseId));
+        }
+
+        @Transactional
+
+        public void revokeForOwner(UUID licenseId, String ownerEmail) {
+                UserAccount owner = requireOwner(ownerEmail);
+
+                License license = licenseRepository.findByIdAndProduct_Owner_Id(licenseId, owner.getId())
+                                .orElseThrow(() -> new LicenseNotFoundException(licenseId));
+
+                license.revoke();
+
+        }
 
 }

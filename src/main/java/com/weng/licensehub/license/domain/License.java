@@ -143,4 +143,9 @@ public class License {
         return status == LicenseStatus.ACTIVE
                 && !isExpiredAt(instant);
     }
+
+    public void revoke()
+    {
+        status = LicenseStatus.REVOKED;
+    }
 }

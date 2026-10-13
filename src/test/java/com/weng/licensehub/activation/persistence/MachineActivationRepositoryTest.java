@@ -5,11 +5,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Instant;
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -19,6 +23,9 @@ import com.weng.licensehub.license.domain.License;
 import com.weng.licensehub.license.persistence.LicenseRepository;
 import com.weng.licensehub.product.domain.Product;
 import com.weng.licensehub.product.persistence.ProductRepository;
+import com.weng.licensehub.user.domain.UserAccount;
+import com.weng.licensehub.user.persistence.UserAccountRepository;
+import org.springframework.data.domain.Sort;
 
 import jakarta.persistence.EntityManager;
 
@@ -26,161 +33,283 @@ import jakarta.persistence.EntityManager;
 @Testcontainers
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 class MachineActivationRepositoryTest {
+        @Autowired
+        private UserAccountRepository userAccountRepository;
 
-    @Container
-    @ServiceConnection
-    static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18-alpine");
+        private UserAccount owner;
 
-    @Autowired
-    private ProductRepository productRepository;
+        @BeforeEach
+        void setUp() {
+                owner = userAccountRepository.save(
+                                new UserAccount("owner@example.com", "test-password-hash"));
+        }
 
-    @Autowired
-    private LicenseRepository licenseRepository;
+        @Container
+        @ServiceConnection
+        static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18-alpine");
 
-    @Autowired
-    private MachineActivationRepository activationRepository;
+        @Autowired
+        private ProductRepository productRepository;
 
-    @Autowired
-    private EntityManager entityManager;
+        @Autowired
+        private LicenseRepository licenseRepository;
 
-    @Test
-    void findsAndCountsOnlyActiveActivationsForLicense() {
-        Product product = productRepository.save(
-                new Product("Product", null));
+        @Autowired
+        private MachineActivationRepository activationRepository;
 
-        License targetLicense = licenseRepository.save(
-                new License(
-                        product,
-                        "AAAAAAAAAAAAAAAA",
-                        "a".repeat(64),
-                        "target@example.com",
-                        3,
-                        null));
+        @Autowired
+        private EntityManager entityManager;
 
-        License otherLicense = licenseRepository.save(
-                new License(
-                        product,
-                        "BBBBBBBBBBBBBBBB",
-                        "b".repeat(64),
-                        "other@example.com",
-                        3,
-                        null));
+        @Test
+        void findsPagedActivationsForLicenseOnly() {
+                Product product = productRepository.save(
+                                new Product(owner, "Product", null));
 
-        String firstFingerprint = "1".repeat(64);
-        String secondFingerprint = "2".repeat(64);
-        String inactiveFingerprint = "3".repeat(64);
+                License targetLicense = licenseRepository.save(
+                                new License(
+                                                product,
+                                                "AAAAAAAAAAAAAAAA",
+                                                "a".repeat(64),
+                                                "target@example.com",
+                                                3,
+                                                null));
 
-        MachineActivation first = activationRepository.save(
-                new MachineActivation(
-                        targetLicense,
-                        firstFingerprint,
-                        "Laptop"));
+                License otherLicense = licenseRepository.save(
+                                new License(
+                                                product,
+                                                "BBBBBBBBBBBBBBBB",
+                                                "b".repeat(64),
+                                                "other@example.com",
+                                                3,
+                                                null));
 
-        activationRepository.save(
-                new MachineActivation(
-                        targetLicense,
-                        secondFingerprint,
-                        "Desktop"));
+                MachineActivation first = activationRepository.save(
+                                new MachineActivation(
+                                                targetLicense,
+                                                "1".repeat(64),
+                                                "Laptop"));
 
-        MachineActivation inactive = activationRepository.save(
-                new MachineActivation(
-                        targetLicense,
-                        inactiveFingerprint,
-                        "Old laptop"));
+                MachineActivation second = activationRepository.save(
+                                new MachineActivation(
+                                                targetLicense,
+                                                "2".repeat(64),
+                                                "Desktop"));
 
-        activationRepository.save(
-                new MachineActivation(
-                        otherLicense,
-                        "4".repeat(64),
-                        "Other machine"));
+                activationRepository.save(
+                                new MachineActivation(
+                                                otherLicense,
+                                                "3".repeat(64),
+                                                "Other machine"));
 
-        entityManager.flush();
+                UUID firstId = first.getId();
+                UUID secondId = second.getId();
 
-        inactive.deactivate(Instant.now());
+                entityManager.flush();
+                entityManager.clear();
 
-        entityManager.flush();
+                Pageable pageable = PageRequest.of(
+                                0,
+                                20,
+                                Sort.Direction.DESC,
+                                "activatedAt");
 
-        UUID firstId = first.getId();
-        UUID targetLicenseId = targetLicense.getId();
+                Page<MachineActivation> result = activationRepository.findAllByLicense_Id(
+                                targetLicense.getId(),
+                                pageable);
 
-        entityManager.clear();
+                assertThat(result.getContent())
+                                .extracting(MachineActivation::getId)
+                                .containsExactlyInAnyOrder(firstId, secondId);
 
-        assertThat(
-                activationRepository
-                        .findByLicense_IdAndMachineFingerprintHashAndDeactivatedAtIsNull(
-                                targetLicenseId,
-                                firstFingerprint))
-                .map(MachineActivation::getId)
-                .contains(firstId);
+                assertThat(result.getTotalElements()).isEqualTo(2);
+                assertThat(result.getTotalPages()).isEqualTo(1);
+                assertThat(result.getNumber()).isZero();
+                assertThat(result.getSize()).isEqualTo(20);
+        }
 
-        assertThat(
-                activationRepository
-                        .findByLicense_IdAndMachineFingerprintHashAndDeactivatedAtIsNull(
-                                targetLicenseId,
-                                inactiveFingerprint))
-                .isEmpty();
+        @Test
+        void findsAndCountsOnlyActiveActivationsForLicense() {
+                Product product = productRepository.save(
+                                new Product(owner, "Product", null));
 
-        assertThat(
-                activationRepository
-                        .countByLicense_IdAndDeactivatedAtIsNull(
+                License targetLicense = licenseRepository.save(
+                                new License(
+                                                product,
+                                                "AAAAAAAAAAAAAAAA",
+                                                "a".repeat(64),
+                                                "target@example.com",
+                                                3,
+                                                null));
+
+                License otherLicense = licenseRepository.save(
+                                new License(
+                                                product,
+                                                "BBBBBBBBBBBBBBBB",
+                                                "b".repeat(64),
+                                                "other@example.com",
+                                                3,
+                                                null));
+
+                String firstFingerprint = "1".repeat(64);
+                String secondFingerprint = "2".repeat(64);
+                String inactiveFingerprint = "3".repeat(64);
+
+                MachineActivation first = activationRepository.save(
+                                new MachineActivation(
+                                                targetLicense,
+                                                firstFingerprint,
+                                                "Laptop"));
+
+                activationRepository.save(
+                                new MachineActivation(
+                                                targetLicense,
+                                                secondFingerprint,
+                                                "Desktop"));
+
+                MachineActivation inactive = activationRepository.save(
+                                new MachineActivation(
+                                                targetLicense,
+                                                inactiveFingerprint,
+                                                "Old laptop"));
+
+                activationRepository.save(
+                                new MachineActivation(
+                                                otherLicense,
+                                                "4".repeat(64),
+                                                "Other machine"));
+
+                entityManager.flush();
+
+                inactive.deactivate(Instant.now());
+
+                entityManager.flush();
+
+                UUID firstId = first.getId();
+                UUID targetLicenseId = targetLicense.getId();
+
+                entityManager.clear();
+
+                assertThat(
+                                activationRepository
+                                                .findByLicense_IdAndMachineFingerprintHashAndDeactivatedAtIsNull(
+                                                                targetLicenseId,
+                                                                firstFingerprint))
+                                .map(MachineActivation::getId)
+                                .contains(firstId);
+
+                assertThat(
+                                activationRepository
+                                                .findByLicense_IdAndMachineFingerprintHashAndDeactivatedAtIsNull(
+                                                                targetLicenseId,
+                                                                inactiveFingerprint))
+                                .isEmpty();
+
+                assertThat(
+                                activationRepository
+                                                .countByLicense_IdAndDeactivatedAtIsNull(
+                                                                targetLicenseId))
+                                .isEqualTo(2);
+        }
+
+        @Test
+        void allowsSameMachineToReactivateAfterDeactivation() {
+                Product product = productRepository.save(
+                                new Product(owner, "Product", null));
+
+                License license = licenseRepository.save(
+                                new License(
+                                                product,
+                                                "1234567890ABCDEF",
+                                                "a".repeat(64),
+                                                "customer@example.com",
+                                                1,
+                                                null));
+
+                String fingerprintHash = "f".repeat(64);
+
+                MachineActivation previous = activationRepository.saveAndFlush(
+                                new MachineActivation(
+                                                license,
+                                                fingerprintHash,
+                                                "Development laptop"));
+
+                previous.deactivate(Instant.now());
+                entityManager.flush();
+
+                MachineActivation reactivated = activationRepository.saveAndFlush(
+                                new MachineActivation(
+                                                license,
+                                                fingerprintHash,
+                                                "Development laptop"));
+
+                UUID reactivatedId = reactivated.getId();
+                UUID licenseId = license.getId();
+
+                entityManager.clear();
+
+                MachineActivation active = activationRepository
+                                .findByLicense_IdAndMachineFingerprintHashAndDeactivatedAtIsNull(
+                                                licenseId,
+                                                fingerprintHash)
+                                .orElseThrow();
+
+                assertThat(active.getId())
+                                .isEqualTo(reactivatedId);
+
+                assertThat(active.getId())
+                                .isNotEqualTo(previous.getId());
+
+                assertThat(activationRepository
+                                .countByLicense_IdAndDeactivatedAtIsNull(
+                                                licenseId))
+                                .isEqualTo(1);
+        }
+
+        @Test
+        void findsActivationOnlyWhenItBelongsToLicense() {
+                Product product = productRepository.save(
+                                new Product(owner, "Product", null));
+
+                License targetLicense = licenseRepository.save(
+                                new License(
+                                                product,
+                                                "AAAAAAAAAAAAAAAA",
+                                                "a".repeat(64),
+                                                "target@example.com",
+                                                3,
+                                                null));
+
+                License otherLicense = licenseRepository.save(
+                                new License(
+                                                product,
+                                                "BBBBBBBBBBBBBBBB",
+                                                "b".repeat(64),
+                                                "other@example.com",
+                                                3,
+                                                null));
+
+                MachineActivation activation = activationRepository.save(
+                                new MachineActivation(
+                                                targetLicense,
+                                                "1".repeat(64),
+                                                "Laptop"));
+
+                UUID activationId = activation.getId();
+                UUID targetLicenseId = targetLicense.getId();
+                UUID otherLicenseId = otherLicense.getId();
+
+                entityManager.flush();
+                entityManager.clear();
+
+                assertThat(activationRepository.findByIdAndLicense_Id(
+                                activationId,
                                 targetLicenseId))
-                .isEqualTo(2);
-    }
+                                .map(MachineActivation::getId)
+                                .contains(activationId);
 
-    @Test
-void allowsSameMachineToReactivateAfterDeactivation() {
-    Product product = productRepository.save(
-            new Product("Product", null));
-
-    License license = licenseRepository.save(
-            new License(
-                    product,
-                    "1234567890ABCDEF",
-                    "a".repeat(64),
-                    "customer@example.com",
-                    1,
-                    null));
-
-    String fingerprintHash = "f".repeat(64);
-
-    MachineActivation previous =
-            activationRepository.saveAndFlush(
-                    new MachineActivation(
-                            license,
-                            fingerprintHash,
-                            "Development laptop"));
-
-    previous.deactivate(Instant.now());
-    entityManager.flush();
-
-    MachineActivation reactivated =
-            activationRepository.saveAndFlush(
-                    new MachineActivation(
-                            license,
-                            fingerprintHash,
-                            "Development laptop"));
-
-    UUID reactivatedId = reactivated.getId();
-    UUID licenseId = license.getId();
-
-    entityManager.clear();
-
-    MachineActivation active =
-            activationRepository
-                    .findByLicense_IdAndMachineFingerprintHashAndDeactivatedAtIsNull(
-                            licenseId,
-                            fingerprintHash)
-                    .orElseThrow();
-
-    assertThat(active.getId())
-            .isEqualTo(reactivatedId);
-
-    assertThat(active.getId())
-            .isNotEqualTo(previous.getId());
-
-    assertThat(activationRepository
-            .countByLicense_IdAndDeactivatedAtIsNull(
-                    licenseId))
-            .isEqualTo(1);
-}
+                assertThat(activationRepository.findByIdAndLicense_Id(
+                                activationId,
+                                otherLicenseId))
+                                .isEmpty();
+        }
 }

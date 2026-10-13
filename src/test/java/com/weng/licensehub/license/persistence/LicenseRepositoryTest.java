@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -18,10 +19,15 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import com.weng.licensehub.license.domain.License;
 import com.weng.licensehub.product.domain.Product;
 import com.weng.licensehub.product.persistence.ProductRepository;
+import com.weng.licensehub.user.domain.UserAccount;
+import com.weng.licensehub.user.persistence.UserAccountRepository;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 @DataJpaTest
 @Testcontainers
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -38,12 +44,23 @@ class LicenseRepositoryTest {
         private LicenseRepository licenseRepository;
 
         @Autowired
+        private UserAccountRepository userAccountRepository;
+
+        @Autowired
         private EntityManager entityManager;
+
+        private UserAccount owner;
+
+        @BeforeEach
+        void setUp() {
+                owner = userAccountRepository.save(
+                                new UserAccount("owner@example.com", "test-password-hash"));
+        }
 
         @Test
         void savesAndLoadsLicenseWithItsProduct() {
                 Product product = productRepository.save(
-                                new Product("LicenseHub", "Test product"));
+                                new Product(owner, "LicenseHub", "Test product"));
 
                 License license = new License(
                                 product,
@@ -71,10 +88,10 @@ class LicenseRepositoryTest {
         @Test
         void findsLicensesForProductNewestFirst() {
                 Product targetProduct = productRepository.save(
-                                new Product("Target product", null));
+                                new Product(owner, "Target product", null));
 
                 Product otherProduct = productRepository.save(
-                                new Product("Other product", null));
+                                new Product(owner, "Other product", null));
 
                 License olderLicense = licenseRepository.saveAndFlush(
                                 new License(
@@ -105,22 +122,32 @@ class LicenseRepositoryTest {
 
                 entityManager.clear();
 
-                List<License> result = licenseRepository
-                                .findAllByProduct_IdOrderByCreatedAtDesc(
-                                                targetProduct.getId());
+                Pageable pageable = PageRequest.of(
+        0,
+        10,
+        Sort.Direction.DESC,
+        "createdAt");
 
-                assertThat(result)
-                                .extracting(License::getKeyId)
-                                .containsExactly(
-                                                newerLicense.getKeyId(),
-                                                olderLicense.getKeyId());
+Page<License> result = licenseRepository
+        .findAllByProduct_Id(
+                targetProduct.getId(),
+                pageable);
+
+assertThat(result.getContent())
+        .extracting(License::getKeyId)
+        .containsExactly(
+                newerLicense.getKeyId(),
+                olderLicense.getKeyId());
+
+assertThat(result.getTotalElements())
+        .isEqualTo(2);
         }
 
         @Test
         void findsLicenseByKeyId() {
                 // Arrange: save a product and a license with a known keyId
                 Product targetProduct = productRepository.save(
-                                new Product("Target product", null));
+                                new Product(owner, "Target product", null));
 
                 String keyId = "0123456789ABCDEF";
 
@@ -151,7 +178,7 @@ class LicenseRepositoryTest {
         @Test
         void findsLicenseWithPessimisticWriteLock() {
                 Product product = productRepository.save(
-                                new Product("Product", null));
+                                new Product(owner, "Product", null));
 
                 License saved = licenseRepository.saveAndFlush(
                                 new License(
@@ -175,5 +202,33 @@ class LicenseRepositoryTest {
                 assertThat(entityManager.getLockMode(locked))
                                 .isEqualTo(
                                                 LockModeType.PESSIMISTIC_WRITE);
+        }
+
+        @Test
+        void reportsWhetherProductHasLicenses() {
+                Product productWithLicense = productRepository.save(
+                                new Product(owner, "Licensed product", null));
+
+                Product productWithoutLicense = productRepository.save(
+                                new Product(owner, "Unlicensed product", null));
+
+                licenseRepository.saveAndFlush(
+                                new License(
+                                                productWithLicense,
+                                                "DDDDDDDDDDDDDDDD",
+                                                "d".repeat(64),
+                                                "customer@example.com",
+                                                1,
+                                                null));
+
+                entityManager.clear();
+
+                assertThat(licenseRepository.existsByProduct_Id(
+                                productWithLicense.getId()))
+                                .isTrue();
+
+                assertThat(licenseRepository.existsByProduct_Id(
+                                productWithoutLicense.getId()))
+                                .isFalse();
         }
 }
