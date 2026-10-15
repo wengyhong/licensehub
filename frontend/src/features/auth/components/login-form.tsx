@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, type SubmitEvent } from "react";
 import { login } from "@/features/auth/api";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 export function LoginForm() {
 
@@ -28,8 +29,8 @@ export function LoginForm() {
         try {
             await login({ email, password });
             router.replace("/dashboard");
-        } catch {
-            setError("Invalid email or password.");
+        } catch(error) {
+            setError(getApiErrorMessage(error,"Invalid email or password."));
         } finally {
             setSubmitting(false);
         }

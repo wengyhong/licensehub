@@ -3,13 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useState, type SubmitEvent } from "react";
 import { createProduct } from "@/features/products/api";
-
+import { getApiErrorMessage, getApiFieldErrors } from "@/lib/api/client";
 export function CreateProductForm() {
   const router = useRouter();
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -24,6 +24,7 @@ export function CreateProductForm() {
     }
 
     setError(null);
+    setFieldErrors({});
     setSubmitting(true);
 
     try {
@@ -35,8 +36,17 @@ export function CreateProductForm() {
 
       form.reset();
       router.refresh();
-    } catch {
-      setError("The product could not be created.");
+    } catch (error) {
+
+
+      const nextFieldErrors = getApiFieldErrors(error);
+      setFieldErrors(nextFieldErrors);
+
+      if (Object.keys(nextFieldErrors).length === 0) {
+        setError(
+          getApiErrorMessage(error, "The product could not be created."),
+        );
+      }
     } finally {
       setSubmitting(false);
     }
@@ -44,6 +54,7 @@ export function CreateProductForm() {
 
   return (
     <form
+
       className="mt-8 space-y-5 rounded-lg border border-slate-200 bg-white p-6"
       onSubmit={handleSubmit}
     >
@@ -54,12 +65,28 @@ export function CreateProductForm() {
           Name
         </label>
         <input
+
+          aria-describedby={
+            fieldErrors.name ? "product-name-error" : undefined
+          }
+          aria-invalid={fieldErrors.name !== undefined}
+
           className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2"
           id="product-name"
           name="name"
           maxLength={150}
           required
         />
+
+        {fieldErrors.name && (
+          <p
+            className="mt-1 text-sm text-red-700"
+            id="product-name-error"
+            role="alert"
+          >
+            Name {fieldErrors.name}
+          </p>
+        )}
       </div>
 
       <div>
@@ -70,11 +97,25 @@ export function CreateProductForm() {
           Description
         </label>
         <textarea
+          aria-describedby={
+            fieldErrors.description ? "product-description-error" : undefined
+          }
+          aria-invalid={fieldErrors.description !== undefined}
           className="mt-2 min-h-24 w-full rounded-md border border-slate-300 px-3 py-2"
           id="product-description"
           name="description"
           maxLength={1000}
         />
+
+        {fieldErrors.description && (
+          <p
+            className="mt-1 text-sm text-red-700"
+            id="product-description-error"
+            role="alert"
+          >
+            Description {fieldErrors.description}
+          </p>
+        )}
       </div>
 
       {error !== null && (

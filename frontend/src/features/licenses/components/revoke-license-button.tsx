@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { revokeLicense } from "../api";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 type RevokeLicenseProps = {
     licenseId: string;
@@ -30,8 +31,8 @@ export function RevokeLicenseButton( {licenseId} : RevokeLicenseProps) {
             await revokeLicense(licenseId);
             router.refresh();
 
-        } catch {
-            setError("The license could not be revoked.");
+        } catch(error) {
+            setError(getApiErrorMessage(error,"The license could not be revoked."));
             setRevoking(false);
         }
     }

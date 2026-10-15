@@ -2,7 +2,11 @@
 
 import { useRouter } from "next/navigation"
 import { useState, type SubmitEvent } from "react"
-import { apiFetch } from "@/lib/api/client"
+import {
+    apiFetch,
+    getApiErrorMessage,
+    getApiFieldErrors,
+} from "@/lib/api/client"
 
 type UserResponse = {
     id: string,
@@ -14,6 +18,7 @@ export function RegisterForm() {
     const router = useRouter();
 
     const [error, setError] = useState<string | null>(null);
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [submitting, setSubmitting] = useState(false);
 
     async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
@@ -28,6 +33,7 @@ export function RegisterForm() {
         }
 
         setError(null);
+        setFieldErrors({});
         setSubmitting(true);
 
         try {
@@ -42,8 +48,18 @@ export function RegisterForm() {
 
 
             router.push("/login?registered=true");
-        } catch {
-            setError("Registration failed. Please check your details");
+        } catch (error) {
+            const nextFieldErrors = getApiFieldErrors(error);
+            setFieldErrors(nextFieldErrors);
+
+            if (Object.keys(nextFieldErrors).length === 0) {
+                setError(
+                    getApiErrorMessage(
+                        error,
+                        "Registration failed. Please check your details.",
+                    ),
+                );
+            }
         }
         finally {
             setSubmitting(false);
@@ -57,6 +73,8 @@ export function RegisterForm() {
                     Email
                 </label>
                 <input
+                    aria-describedby={fieldErrors.email ? "email-error" : undefined}
+                    aria-invalid={fieldErrors.email !== undefined}
                     className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2"
                     id="email"
                     name="email"
@@ -65,6 +83,11 @@ export function RegisterForm() {
                     maxLength={320}
                     required
                 />
+                {fieldErrors.email && (
+                    <p className="mt-1 text-sm text-red-700" id="email-error" role="alert">
+                        Email {fieldErrors.email}
+                    </p>
+                )}
             </div>
 
             <div>
@@ -72,6 +95,8 @@ export function RegisterForm() {
                     Password
                 </label>
                 <input
+                    aria-describedby={fieldErrors.password ? "password-error" : undefined}
+                    aria-invalid={fieldErrors.password !== undefined}
                     className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2"
                     id="password"
                     name="password"
@@ -81,6 +106,15 @@ export function RegisterForm() {
                     maxLength={72}
                     required
                 />
+                {fieldErrors.password && (
+                    <p
+                        className="mt-1 text-sm text-red-700"
+                        id="password-error"
+                        role="alert"
+                    >
+                        Password {fieldErrors.password}
+                    </p>
+                )}
                 <p className="mt-2 text-sm text-slate-500">
                     Use between 12 and 72 characters.
                 </p>

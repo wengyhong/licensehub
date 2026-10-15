@@ -10,8 +10,10 @@ export type ProductLookupResult =
   | { status: "unauthorized" }
   | { status: "not-found" };
 
-export async function getProducts(): Promise<PagedResponse<Product> | null> {
-  const response = await backendFetch("/api/products");
+export async function getProducts(page:number): Promise<PagedResponse<Product> | null> {
+
+    const query = new URLSearchParams({page: page.toString(), size:"20"})
+  const response = await backendFetch(`/api/products?${query.toString()}`);
 
   if (response.status === 401) {
     return null;

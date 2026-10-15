@@ -3,18 +3,37 @@ import { redirect } from "next/navigation";
 import { getProducts } from "@/features/products/server";
 import { CreateProductForm } from "@/features/products/components/create-product-form";
 import Link from "next/link";
+import { Pagination } from "@/components/ui/pagination";
+import { parsePage } from "@/lib/pagination";
 export const metadata: Metadata = {
     title: "Products"
 };
 
+type ProductsPageProps = {
+    searchParams: Promise<{
+        page?: string | string[];
+    }>;
+};
 
 
-export default async function ProductsPage() {
-    const productsPage = await getProducts();
+export default async function ProductsPage({ searchParams }: ProductsPageProps) {
+
+
+    const params = await searchParams;
+    const requestedPage = parsePage(params.page);
+
+    const productsPage = await getProducts(requestedPage - 1);
     if (productsPage === null) {
         redirect("/login");
     }
-
+    if (
+        productsPage.totalElements > 0 &&
+        requestedPage > productsPage.totalPages
+    ) {
+        redirect(
+            `/dashboard/products?page=${productsPage.totalPages}`,
+        );
+    }
     return (
         <main className="mx-auto max-w-6xl px-6 py-12">
             <div>
@@ -63,6 +82,12 @@ export default async function ProductsPage() {
                     </ul>
                 </div>
             )}
+
+            <Pagination
+                basePath="/dashboard/products"
+                currentPage={productsPage.page + 1}
+                totalPages={productsPage.totalPages}
+            />
         </main>
     );
 

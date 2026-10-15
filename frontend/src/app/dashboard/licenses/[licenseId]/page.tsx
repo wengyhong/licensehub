@@ -7,8 +7,10 @@ import { notFound, redirect } from "next/navigation";
 type LicenseDetailsPageProps = {
     params: Promise<{
         licenseId: string;
-    }>;
+    }>,
+    searchParams: Promise<{ page?: string | string[]; }>
 };
+
 
 const dateFormatter = new Intl.DateTimeFormat("en-MY", {
     dateStyle: "medium",
@@ -22,9 +24,14 @@ const statusClasses: Record<LicenseStatus, string> = {
 };
 import { getActivationsForLicense } from "@/features/activations/server";
 import { ActivationList } from "@/features/activations/components/activation-list";
-export default async function LicenseDetailsPage({ params }: LicenseDetailsPageProps) {
+import { parsePage } from "@/lib/pagination";
+import { Pagination } from "@/components/ui/pagination";
+export default async function LicenseDetailsPage({ params, searchParams }: LicenseDetailsPageProps) {
 
-    const { licenseId } = await params;
+
+    const [{ licenseId }, query] = await Promise.all([params, searchParams]);
+    const requestedPage = parsePage(query.page);
+
     const result = await getLicense(licenseId);
 
     if (result.status === "unauthorized") {
@@ -38,10 +45,14 @@ export default async function LicenseDetailsPage({ params }: LicenseDetailsPageP
     const license = result.license;
 
 
-    const activationsPage = await getActivationsForLicense(license.id);
+    const activationsPage = await getActivationsForLicense(license.id, requestedPage - 1);
 
     if (activationsPage === null) {
         redirect("/login");
+    }
+
+    if (activationsPage.totalElements > 0 && requestedPage > activationsPage.totalPages) {
+        redirect(`/dashboard/licenses/${license.id}?>page=${activationsPage.totalPages}`);
     }
     return (
         <main className="mx-auto max-w-6xl px-6 py-12">
@@ -103,7 +114,11 @@ export default async function LicenseDetailsPage({ params }: LicenseDetailsPageP
             </div>
 
             <ActivationList activations={activationsPage.content} />
-
+            <Pagination
+                basePath={`/dashboard/licenses/${license.id}`}
+                currentPage={activationsPage.page + 1}
+                totalPages={activationsPage.totalPages}
+            />
             {license.status !== "REVOKED" && (
                 <section className="mt-8 rounded-lg border border-red-200 bg-red-50 p-6">
                     <h2 className="text-lg font-semibold text-red-950">Revoke license</h2>

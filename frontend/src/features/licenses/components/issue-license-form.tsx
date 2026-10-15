@@ -6,6 +6,7 @@ import {
   issueLicense,
   type IssuedLicenseResponse,
 } from "@/features/licenses/api";
+import { getApiErrorMessage, getApiFieldErrors } from "@/lib/api/client";
 
 type IssueLicenseFormProps = {
   productId: string;
@@ -19,6 +20,7 @@ export function IssueLicenseForm({
   const [issued, setIssued] =
     useState<IssuedLicenseResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -57,6 +59,7 @@ export function IssueLicenseForm({
     }
 
     setError(null);
+    setFieldErrors({});
     setIssued(null);
     setCopied(false);
     setSubmitting(true);
@@ -72,8 +75,15 @@ export function IssueLicenseForm({
       setIssued(response);
       form.reset();
       router.refresh();
-    } catch {
-      setError("The license could not be issued.");
+    } catch (error) {
+      const nextFieldErrors = getApiFieldErrors(error);
+      setFieldErrors(nextFieldErrors);
+
+      if (Object.keys(nextFieldErrors).length === 0) {
+        setError(
+          getApiErrorMessage(error, "The license could not be issued."),
+        );
+      }
     } finally {
       setSubmitting(false);
     }
@@ -108,6 +118,10 @@ export function IssueLicenseForm({
             Customer email
           </label>
           <input
+            aria-describedby={
+              fieldErrors.customerEmail ? "customer-email-error" : undefined
+            }
+            aria-invalid={fieldErrors.customerEmail !== undefined}
             className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2"
             id="customer-email"
             name="customerEmail"
@@ -116,6 +130,15 @@ export function IssueLicenseForm({
             maxLength={320}
             required
           />
+          {fieldErrors.customerEmail && (
+            <p
+              className="mt-1 text-sm text-red-700"
+              id="customer-email-error"
+              role="alert"
+            >
+              Customer email {fieldErrors.customerEmail}
+            </p>
+          )}
         </div>
 
         <div>
@@ -126,6 +149,12 @@ export function IssueLicenseForm({
             Maximum activations
           </label>
           <input
+            aria-describedby={
+              fieldErrors.maxActivations
+                ? "max-activations-error"
+                : undefined
+            }
+            aria-invalid={fieldErrors.maxActivations !== undefined}
             className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2"
             defaultValue={1}
             id="max-activations"
@@ -135,6 +164,15 @@ export function IssueLicenseForm({
             step={1}
             required
           />
+          {fieldErrors.maxActivations && (
+            <p
+              className="mt-1 text-sm text-red-700"
+              id="max-activations-error"
+              role="alert"
+            >
+              Maximum activations {fieldErrors.maxActivations}
+            </p>
+          )}
         </div>
 
         <div>
@@ -145,11 +183,24 @@ export function IssueLicenseForm({
             Expiration date
           </label>
           <input
+            aria-describedby={
+              fieldErrors.expiresAt ? "expires-at-error" : undefined
+            }
+            aria-invalid={fieldErrors.expiresAt !== undefined}
             className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2"
             id="expires-at"
             name="expiresAt"
             type="datetime-local"
           />
+          {fieldErrors.expiresAt && (
+            <p
+              className="mt-1 text-sm text-red-700"
+              id="expires-at-error"
+              role="alert"
+            >
+              Expiration date {fieldErrors.expiresAt}
+            </p>
+          )}
           <p className="mt-2 text-sm text-slate-500">
             Leave blank for a license that does not expire.
           </p>

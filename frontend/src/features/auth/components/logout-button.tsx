@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { logout } from "@/features/auth/api";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 export function LogoutButton() {
     const router = useRouter();
@@ -17,8 +18,8 @@ export function LogoutButton() {
             await logout();
             router.replace("/login");
             router.refresh();
-        } catch {
-            setError("Logout failed. Please try again.");
+        } catch (error){
+            setError(getApiErrorMessage(error,"Logout failed. Please try again."));
             setSubmitting(false);
         }
     }

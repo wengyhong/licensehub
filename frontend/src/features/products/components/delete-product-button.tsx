@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { deleteProduct } from "../api";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 type DeleteProductProps = {
     productId: string,
@@ -32,8 +33,8 @@ export function DeleteProductButton( {productId, productName} : DeleteProductPro
             router.replace("/dashboard/products");
             router.refresh();
 
-        } catch {
-            setError("The product could not be deleted.");
+        } catch(error) {
+            setError( getApiErrorMessage(error,"The product could not be deleted."));
             setDeleting(false);
         }
     }

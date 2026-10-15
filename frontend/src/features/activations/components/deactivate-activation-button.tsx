@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { deactivateActivation } from "@/features/activations/api";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 type DeactivateActivationButtonProps = {
   activationId: string;
@@ -35,8 +36,8 @@ export function DeactivateActivationButton({
     try {
       await deactivateActivation(licenseId, activationId);
       router.refresh();
-    } catch {
-      setError("The machine could not be deactivated.");
+    } catch(error) {
+      setError(getApiErrorMessage(error, "The machine could not be deactivated."));
       setDeactivating(false);
     }
   }

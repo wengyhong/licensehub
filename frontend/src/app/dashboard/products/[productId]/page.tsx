@@ -5,18 +5,25 @@ import { UpdateProductForm } from "@/features/products/components/update-product
 import { DeleteProductButton } from "@/features/products/components/delete-product-button";
 
 type ProductDetailsPageProps = {
-    params: Promise<{ productId: string }>;
+    params: Promise<{ productId: string }>,
+    searchParams: Promise<{
+        page?: string | string[];
+    }>;
 }
 import { getLicensesForProduct } from "@/features/licenses/server";
 import { LicenseList } from "@/features/licenses/components/license-list";
 import { IssueLicenseForm } from "@/features/licenses/components/issue-license-form";
+import { parsePage } from "@/lib/pagination";
+import { Pagination } from "@/components/ui/pagination";
 const dateFormatter = new Intl.DateTimeFormat("en-MY", {
     dateStyle: "medium",
     timeStyle: "short"
 });
 
-export default async function ProductDetailsPage({ params, }: ProductDetailsPageProps) {
-    const { productId } = await params;
+export default async function ProductDetailsPage({ params, searchParams }: ProductDetailsPageProps) {
+    const [{ productId }, query] = await Promise.all([params, searchParams]);
+
+    const requestedPage = parsePage(query.page);
     const result = await getProduct(productId);
 
     if (result.status === "unauthorized") {
@@ -28,10 +35,19 @@ export default async function ProductDetailsPage({ params, }: ProductDetailsPage
     }
 
     const product = result.product;
-    const licensesPage = await getLicensesForProduct(product.id);
+    const licensesPage = await getLicensesForProduct(product.id, requestedPage - 1);
 
     if (licensesPage === null) {
         redirect("/login");
+    }
+
+    if (
+        licensesPage.totalElements > 0 &&
+        requestedPage > licensesPage.totalPages
+    ) {
+        redirect(
+            `/dashboard/products/${product.id}?page=${licensesPage.totalPages}`,
+        );
     }
     return (
         <main className="mx-auto max-w-6xl px-6 py-12">
@@ -84,6 +100,14 @@ export default async function ProductDetailsPage({ params, }: ProductDetailsPage
             <IssueLicenseForm productId={product.id} />
 
             <LicenseList licenses={licensesPage.content} />
+
+            <Pagination
+                basePath={`/dashboard/products/${product.id}`}
+                currentPage={licensesPage.page + 1}
+                totalPages={licensesPage.totalPages}
+            />
+
+
         </main>
     );
 }
