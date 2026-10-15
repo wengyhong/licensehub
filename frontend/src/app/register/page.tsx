@@ -1,12 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { RegisterForm } from "@/features/auth/components/register-form";
+import { getCurrentUser } from "@/features/auth/server";
 
 export const metadata: Metadata = {
   title: "Create account",
 };
 
-export default function RegisterPage() {
+export default async function RegisterPage() {
+  const user = await getCurrentUser();
+
+  if (user !== null) {
+    redirect("/dashboard");
+  }
+
   return (
     <main className="mx-auto w-full max-w-md px-6 py-12">
       <h1 className="text-3xl font-semibold">Create your account</h1>

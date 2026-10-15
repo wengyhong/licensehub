@@ -29,6 +29,7 @@ export function LoginForm() {
         try {
             await login({ email, password });
             router.replace("/dashboard");
+            router.refresh();
         } catch(error) {
             setError(getApiErrorMessage(error,"Invalid email or password."));
         } finally {

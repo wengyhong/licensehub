@@ -1,12 +1,13 @@
 import "server-only"
 
+import { cache } from "react";
 import { backendFetch } from "@/lib/api/server";
 
  export type CurrentUser ={
     email:string;
  };
 
- export async function getCurrentUser():Promise<CurrentUser|null>{
+ export const getCurrentUser = cache(async ():Promise<CurrentUser|null> => {
 
     const response = await backendFetch("/api/auth/me");
 
@@ -21,4 +22,4 @@ import { backendFetch } from "@/lib/api/server";
     }
 
     return response.json() as Promise<CurrentUser>;
- }
+ });

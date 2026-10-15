@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { Suspense } from "react";
+import { AuthNavigation } from "@/features/auth/components/auth-navigation";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -35,21 +37,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 LicenseHub
               </Link>
 
-              <nav aria-label="Primary navigation" className="flex gap-4">
-                <Link
-                  className="text-sm text-slate-600 hover:text-slate-950"
-                  href="/login"
-                >
-                  Log in
-                </Link>
-
-                <Link
-                  className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white hover:bg-slate-700"
-                  href="/register"
-                >
-                  Create account
-                </Link>
-              </nav>
+              <Suspense
+                fallback={
+                  <div
+                    aria-hidden="true"
+                    className="h-9 w-48 animate-pulse rounded-md bg-slate-100"
+                  />
+                }
+              >
+                <AuthNavigation />
+              </Suspense>
             </div>
           </header>
 
