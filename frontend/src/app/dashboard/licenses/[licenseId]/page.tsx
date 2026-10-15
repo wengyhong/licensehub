@@ -52,7 +52,7 @@ export default async function LicenseDetailsPage({ params, searchParams }: Licen
     }
 
     if (activationsPage.totalElements > 0 && requestedPage > activationsPage.totalPages) {
-        redirect(`/dashboard/licenses/${license.id}?>page=${activationsPage.totalPages}`);
+        redirect(`/dashboard/licenses/${license.id}?page=${activationsPage.totalPages}`);
     }
     return (
         <main className="mx-auto max-w-6xl px-6 py-12">
