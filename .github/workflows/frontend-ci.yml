@@ -38,3 +38,83 @@ jobs:
 
       - name: Build production frontend
         run: npm run build
+
+  e2e:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: licensehub
+          POSTGRES_USER: licensehub_app
+          POSTGRES_PASSWORD: ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U licensehub_app -d licensehub"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      LICENSEHUB_DB_URL: jdbc:postgresql://localhost:5432/licensehub
+      LICENSEHUB_DB_USERNAME: licensehub_app
+      LICENSEHUB_DB_PASSWORD: ci_password
+      BACKEND_URL: http://localhost:8080
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Make Maven wrapper executable
+        run: chmod +x mvnw
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Start backend
+        run: |
+          ./mvnw --batch-mode --no-transfer-progress spring-boot:run > backend.log 2>&1 &
+
+      - name: Wait for backend
+        run: |
+          for attempt in {1..60}; do
+            if curl --fail --silent http://localhost:8080/actuator/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Backend did not become ready."
+          cat backend.log
+          exit 1
+
+      - name: Run browser tests
+        working-directory: frontend
+        run: npm run test:e2e
+
+      - name: Print backend logs after failure
+        if: failure()
+        run: cat backend.log
