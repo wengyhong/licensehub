@@ -70,6 +70,31 @@ class ActivationManagementServiceTest {
   }
 
   @Test
+  void findAllForOwnerByActivityUsesTheMatchingDeactivationQuery() {
+    UUID licenseId = UUID.randomUUID();
+    License license = mock(License.class);
+    MachineActivation activeActivation = mock(MachineActivation.class);
+    MachineActivation inactiveActivation = mock(MachineActivation.class);
+    Pageable pageable = PageRequest.of(0, 20);
+    Page<MachineActivation> activePage = new PageImpl<>(List.of(activeActivation), pageable, 1);
+    Page<MachineActivation> inactivePage = new PageImpl<>(List.of(inactiveActivation), pageable, 1);
+
+    when(licenseService.getByIdForOwner(licenseId, OWNER_EMAIL)).thenReturn(license);
+    when(activationRepository.findAllByLicense_IdAndDeactivatedAtIsNull(licenseId, pageable))
+        .thenReturn(activePage);
+    when(activationRepository.findAllByLicense_IdAndDeactivatedAtIsNotNull(licenseId, pageable))
+        .thenReturn(inactivePage);
+
+    assertThat(service.findAllForOwnerByActivity(licenseId, OWNER_EMAIL, true, pageable))
+        .isSameAs(activePage);
+    assertThat(service.findAllForOwnerByActivity(licenseId, OWNER_EMAIL, false, pageable))
+        .isSameAs(inactivePage);
+
+    verify(activationRepository).findAllByLicense_IdAndDeactivatedAtIsNull(licenseId, pageable);
+    verify(activationRepository).findAllByLicense_IdAndDeactivatedAtIsNotNull(licenseId, pageable);
+  }
+
+  @Test
   void findAllForOwnerDoesNotQueryActivationsWhenLicenseIsNotOwned() {
     UUID licenseId = UUID.randomUUID();
     Pageable pageable = PageRequest.of(0, 20);

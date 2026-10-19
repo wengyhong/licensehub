@@ -147,6 +147,42 @@ class MachineActivationRepositoryTest {
   }
 
   @Test
+  void filtersActiveAndInactiveActivationsForLicense() {
+    Product product = productRepository.save(new Product(owner, "Product", null));
+    License license =
+        licenseRepository.save(
+            new License(
+                product, "EEEEEEEEEEEEEEEE", "e".repeat(64), "customer@example.com", 2, null));
+    MachineActivation active =
+        activationRepository.save(new MachineActivation(license, "1".repeat(64), "Laptop"));
+    MachineActivation inactive =
+        activationRepository.save(new MachineActivation(license, "2".repeat(64), "Desktop"));
+
+    entityManager.flush();
+    inactive.deactivate(Instant.now());
+    entityManager.flush();
+
+    UUID activeId = active.getId();
+    UUID inactiveId = inactive.getId();
+    Pageable pageable = PageRequest.of(0, 10);
+    entityManager.clear();
+
+    assertThat(
+            activationRepository
+                .findAllByLicense_IdAndDeactivatedAtIsNull(license.getId(), pageable)
+                .getContent())
+        .extracting(MachineActivation::getId)
+        .containsExactly(activeId);
+
+    assertThat(
+            activationRepository
+                .findAllByLicense_IdAndDeactivatedAtIsNotNull(license.getId(), pageable)
+                .getContent())
+        .extracting(MachineActivation::getId)
+        .containsExactly(inactiveId);
+  }
+
+  @Test
   void allowsSameMachineToReactivateAfterDeactivation() {
     Product product = productRepository.save(new Product(owner, "Product", null));
 

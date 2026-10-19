@@ -18,5 +18,11 @@ public interface MachineActivationRepository extends JpaRepository<MachineActiva
 
   Page<MachineActivation> findAllByLicense_Id(UUID licenseId, Pageable pageable);
 
+  Page<MachineActivation> findAllByLicense_IdAndDeactivatedAtIsNull(
+      UUID licenseId, Pageable pageable);
+
+  Page<MachineActivation> findAllByLicense_IdAndDeactivatedAtIsNotNull(
+      UUID licenseId, Pageable pageable);
+
   Optional<MachineActivation> findByIdAndLicense_Id(UUID activationId, UUID licenseId);
 }

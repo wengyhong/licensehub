@@ -3,6 +3,7 @@ package com.weng.licensehub.license.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.weng.licensehub.license.domain.License;
+import com.weng.licensehub.license.domain.LicenseStatus;
 import com.weng.licensehub.product.domain.Product;
 import com.weng.licensehub.product.persistence.ProductRepository;
 import com.weng.licensehub.user.domain.UserAccount;
@@ -98,6 +99,41 @@ class LicenseRepositoryTest {
         .containsExactly(newerLicense.getKeyId(), olderLicense.getKeyId());
 
     assertThat(result.getTotalElements()).isEqualTo(2);
+  }
+
+  @Test
+  void filtersLicensesByActiveStatus() {
+    Product product = productRepository.save(new Product(owner, "Product", null));
+    License activeLicense =
+        licenseRepository.save(
+            new License(
+                product, "1111111111111111", "a".repeat(64), "active@example.com", 1, null));
+    License inactiveLicense =
+        licenseRepository.save(
+            new License(
+                product, "2222222222222222", "b".repeat(64), "inactive@example.com", 1, null));
+
+    inactiveLicense.revoke();
+    licenseRepository.flush();
+
+    UUID activeLicenseId = activeLicense.getId();
+    UUID inactiveLicenseId = inactiveLicense.getId();
+    Pageable pageable = PageRequest.of(0, 10);
+    entityManager.clear();
+
+    assertThat(
+            licenseRepository
+                .findAllByProduct_IdAndStatus(product.getId(), LicenseStatus.ACTIVE, pageable)
+                .getContent())
+        .extracting(License::getId)
+        .containsExactly(activeLicenseId);
+
+    assertThat(
+            licenseRepository
+                .findAllByProduct_IdAndStatusNot(product.getId(), LicenseStatus.ACTIVE, pageable)
+                .getContent())
+        .extracting(License::getId)
+        .containsExactly(inactiveLicenseId);
   }
 
   @Test
