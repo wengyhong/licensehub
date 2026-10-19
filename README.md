@@ -1,12 +1,11 @@
 # LicenseHub
 
 [![Backend CI](https://github.com/wengyhong/licensehub/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/wengyhong/licensehub/actions/workflows/backend-ci.yml)
+[![Frontend CI](https://github.com/wengyhong/licensehub/actions/workflows/frontend-ci.yml/badge.svg)](https://github.com/wengyhong/licensehub/actions/workflows/frontend-ci.yml)
 
 ## Overview
 
-LicenseHub is a production-style Spring Boot REST API for issuing software licenses and managing machine activations. It is a learning and portfolio project focused on idiomatic Java, Spring Boot, PostgreSQL, testing, security, and maintainable backend design.
-
-The current repository contains the backend only.
+LicenseHub is a full-stack SaaS application for issuing software licenses and managing machine activations. It is a learning and portfolio project focused on idiomatic Java and Spring Boot, a modern Next.js frontend, PostgreSQL, automated testing, security, and maintainable application design.
 
 ### Features
 
@@ -22,7 +21,9 @@ The current repository contains the backend only.
 - In-memory rate limiting for public activation endpoints
 - OpenAPI, Swagger UI, and an Actuator health endpoint
 - Unit, MVC slice, repository, and Testcontainers integration tests
-- Docker Compose and GitHub Actions
+- Responsive Next.js management dashboard
+- Frontend component tests and a full-stack Playwright browser journey
+- Docker Compose and separate backend and frontend GitHub Actions pipelines
 
 ## Technology Stack
 
@@ -36,24 +37,32 @@ The current repository contains the backend only.
 - Springdoc OpenAPI and Spring Boot Actuator
 - JUnit 5, Mockito, AssertJ, MockMvc, and Testcontainers
 - Maven Wrapper, Docker Compose, and GitHub Actions
+- Next.js 16, React 19, TypeScript, and Tailwind CSS
+- Vitest, Testing Library, and Playwright
 
 ## Architecture
 
 The codebase uses feature-first packages. Each business area keeps its API, application logic, domain model, and persistence code together.
 
 ```text
-com.weng.licensehub
-ÃÄÄ activation
-³   ÃÄÄ api
-³   ÃÄÄ application
-³   ÃÄÄ domain
-³   ÀÄÄ persistence
-ÃÄÄ license
-ÃÄÄ product
-ÃÄÄ user
-ÀÄÄ shared
-    ÃÄÄ api
-    ÀÄÄ security
+src/main/java/com/weng/licensehub
+|-- activation
+|   |-- api
+|   |-- application
+|   |-- domain
+|   `-- persistence
+|-- license
+|-- product
+|-- user
+`-- shared
+    |-- api
+    `-- security
+
+frontend/src
+|-- app                 Next.js routes, layouts, loading, and error boundaries
+|-- components          Shared UI components
+|-- features            Auth, product, license, and activation UI/API modules
+`-- lib                 Shared API and pagination utilities
 ```
 
 The main responsibilities are:
@@ -205,6 +214,7 @@ Migration files live in `src/main/resources/db/migration`. Never edit an applied
 ### Prerequisites
 
 - Java 21
+- Node.js 24 and npm
 - Docker Desktop when using the provided PostgreSQL container or running integration tests
 - Git
 
@@ -215,7 +225,7 @@ java -version
 .\mvnw.cmd -version
 ```
 
-Both commands should report Java 21.
+Both commands should report Java 21. Confirm the frontend runtime with `node --version` and `npm --version`.
 
 ### Start PostgreSQL
 
@@ -238,7 +248,20 @@ $env:LICENSEHUB_DB_PASSWORD = "choose-a-local-password"
 .\mvnw.cmd spring-boot:run
 ```
 
-The API starts at <http://localhost:8080>. The default JDBC URL uses port `5433` for an independently installed local PostgreSQL instance, so override it when using the Compose database.
+The API starts at <http://localhost:8080>. Swagger UI is available at <http://localhost:8080/swagger-ui/index.html>.
+
+### Start the frontend
+
+In another terminal:
+
+```powershell
+cd frontend
+Copy-Item .env.example .env.local
+npm.cmd ci
+npm.cmd run dev
+```
+
+The frontend starts at <http://localhost:3000> and proxies API requests to the backend configured by `BACKEND_URL`.
 
 ## Running with Docker Compose
 
@@ -264,6 +287,8 @@ docker compose down
 
 Use `docker compose down -v` only when you intentionally want to delete the PostgreSQL volume and all local LicenseHub data.
 
+The Compose file starts PostgreSQL and the Spring Boot API. Run the Next.js frontend separately from the `frontend` directory.
+
 ## Running Tests
 
 Docker Desktop must be running for repository and integration tests that use PostgreSQL Testcontainers.
@@ -282,14 +307,33 @@ Run one test class:
 
 The suite contains unit, MockMvc controller, PostgreSQL repository, and full integration tests. GitHub Actions runs `clean verify` and builds the Docker image on pushes and pull requests.
 
+Run frontend linting, unit tests, and the production build:
+
+```powershell
+cd frontend
+npm.cmd ci
+npm.cmd run lint
+npm.cmd run test:run
+npm.cmd run build
+```
+
+With PostgreSQL and the backend running, execute the full browser journey:
+
+```powershell
+npm.cmd run test:e2e
+```
+
+The Playwright test registers a user, logs in, creates a product, issues a license, verifies that the full key is not recoverable from the details page, and revokes the license. Frontend CI runs both the fast verification job and this full-stack browser test.
+
 ## Configuration
 
 | Environment variable | Default | Purpose |
 |---|---|---|
-| `LICENSEHUB_DB_URL` | `jdbc:postgresql://localhost:5433/licensehub` | PostgreSQL JDBC URL |
+| `LICENSEHUB_DB_URL` | `jdbc:postgresql://localhost:5434/licensehub` | PostgreSQL JDBC URL |
 | `LICENSEHUB_DB_USERNAME` | `licensehub_app` | PostgreSQL username |
 | `LICENSEHUB_DB_PASSWORD` | None | Required PostgreSQL password |
 | `LICENSEHUB_ACTIVATION_RATE_LIMIT` | `60` | Public activation requests allowed per client address per minute |
+| `BACKEND_URL` | `http://localhost:8080` | Backend origin used by Next.js rewrites |
 
 Do not commit real credentials. The repository ignores `.env`.
 
@@ -315,4 +359,6 @@ Do not commit real credentials. The repository ignores `.env`.
 - There is no email verification, password reset, or account-management workflow.
 - License keys cannot be recovered after issuance because their secrets are not stored.
 - Operational metrics are limited to the current Actuator setup.
-- The SvelteKit frontend has not been implemented yet.
+- The application has not yet been deployed to a public production environment.
+- Activation requests are not yet explicitly bound to an expected product identifier.
+- Client validation currently requires an online request and has no signed offline grace period.
