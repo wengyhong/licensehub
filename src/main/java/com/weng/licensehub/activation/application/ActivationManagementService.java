@@ -35,6 +35,19 @@ public class ActivationManagementService {
     return activationRepository.findAllByLicense_Id(licenseId, pageable);
   }
 
+  @Transactional(readOnly = true)
+  public Page<MachineActivation> findAllForOwnerByActivity(
+      UUID licenseId, String ownerEmail, boolean active, Pageable pageable) {
+
+    licenseService.getByIdForOwner(licenseId, ownerEmail);
+
+    if (active) {
+      return activationRepository.findAllByLicense_IdAndDeactivatedAtIsNull(licenseId, pageable);
+    }
+
+    return activationRepository.findAllByLicense_IdAndDeactivatedAtIsNotNull(licenseId, pageable);
+  }
+
   @Transactional
   public void deactivateForOwner(UUID licenseId, UUID activationId, String ownerEmail) {
 

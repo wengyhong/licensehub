@@ -195,6 +195,38 @@ class LicenseServiceTest {
   }
 
   @Test
+  void findAllByProductIdForOwnerAndActivityUsesTheMatchingStatusQuery() {
+    UUID ownerId = stubOwner();
+    UUID productId = UUID.randomUUID();
+    Product product = mock(Product.class);
+    License activeLicense = mock(License.class);
+    License inactiveLicense = mock(License.class);
+    Pageable pageable = PageRequest.of(0, 20);
+    Page<License> activePage = new PageImpl<>(List.of(activeLicense), pageable, 1);
+    Page<License> inactivePage = new PageImpl<>(List.of(inactiveLicense), pageable, 1);
+
+    when(productRepository.findByIdAndOwner_Id(productId, ownerId))
+        .thenReturn(Optional.of(product));
+    when(licenseRepository.findAllByProduct_IdAndStatus(productId, LicenseStatus.ACTIVE, pageable))
+        .thenReturn(activePage);
+    when(licenseRepository.findAllByProduct_IdAndStatusNot(
+            productId, LicenseStatus.ACTIVE, pageable))
+        .thenReturn(inactivePage);
+
+    assertSame(
+        activePage,
+        service.findAllByProductIdForOwnerAndActivity(productId, OWNER_EMAIL, true, pageable));
+    assertSame(
+        inactivePage,
+        service.findAllByProductIdForOwnerAndActivity(productId, OWNER_EMAIL, false, pageable));
+
+    verify(licenseRepository)
+        .findAllByProduct_IdAndStatus(productId, LicenseStatus.ACTIVE, pageable);
+    verify(licenseRepository)
+        .findAllByProduct_IdAndStatusNot(productId, LicenseStatus.ACTIVE, pageable);
+  }
+
+  @Test
   void findAllByProductIdForOwnerThrowsWhenProductIsNotOwned() {
     UUID ownerId = stubOwner();
     UUID productId = UUID.randomUUID();

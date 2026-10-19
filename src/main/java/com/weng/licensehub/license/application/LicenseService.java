@@ -1,6 +1,7 @@
 package com.weng.licensehub.license.application;
 
 import com.weng.licensehub.license.domain.License;
+import com.weng.licensehub.license.domain.LicenseStatus;
 import com.weng.licensehub.license.persistence.LicenseRepository;
 import com.weng.licensehub.product.application.ProductNotFoundException;
 import com.weng.licensehub.product.domain.Product;
@@ -88,6 +89,21 @@ public class LicenseService {
     requireOwnedProduct(productId, ownerEmail);
 
     return licenseRepository.findAllByProduct_Id(productId, pageable);
+  }
+
+  @Transactional(readOnly = true)
+  public Page<License> findAllByProductIdForOwnerAndActivity(
+      UUID productId, String ownerEmail, boolean active, Pageable pageable) {
+
+    requireOwnedProduct(productId, ownerEmail);
+
+    if (active) {
+      return licenseRepository.findAllByProduct_IdAndStatus(
+          productId, LicenseStatus.ACTIVE, pageable);
+    }
+
+    return licenseRepository.findAllByProduct_IdAndStatusNot(
+        productId, LicenseStatus.ACTIVE, pageable);
   }
 
   @Transactional(readOnly = true)

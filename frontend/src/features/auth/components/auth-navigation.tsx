@@ -41,6 +41,14 @@ export async function AuthNavigation() {
         Products
       </Link>
 
+      <span
+        aria-label={`Signed in as ${user.email}`}
+        className="max-w-48 truncate text-sm text-slate-500"
+        title={`Signed in as ${user.email}`}
+      >
+        {user.email}
+      </span>
+
       <LogoutButton />
     </nav>
   );

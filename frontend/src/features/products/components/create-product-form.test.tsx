@@ -5,8 +5,17 @@ import { CreateProductForm } from "./create-product-form";
 
 const mocks = vi.hoisted(() => ({
   createProduct: vi.fn(),
+  replace: vi.fn(),
   refresh: vi.fn(),
 }));
+
+const createdProduct = {
+  id: "11111111-1111-1111-1111-111111111111",
+  name: "LicenseHub Desktop",
+  description: "Desktop client",
+  createdAt: "2026-10-19T00:00:00Z",
+  updatedAt: "2026-10-19T00:00:00Z",
+};
 
 vi.mock("@/features/products/api", () => ({
   createProduct: mocks.createProduct,
@@ -14,6 +23,7 @@ vi.mock("@/features/products/api", () => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
+    replace: mocks.replace,
     refresh: mocks.refresh,
   }),
 }));
@@ -21,11 +31,12 @@ vi.mock("next/navigation", () => ({
 describe("CreateProductForm", () => {
   beforeEach(() => {
     mocks.createProduct.mockReset();
+    mocks.replace.mockReset();
     mocks.refresh.mockReset();
   });
 
   it("trims and submits product details", async () => {
-    mocks.createProduct.mockResolvedValue(undefined);
+    mocks.createProduct.mockResolvedValue(createdProduct);
     render(<CreateProductForm />);
 
     fireEvent.change(screen.getByRole("textbox", { name: "Name" }), {
@@ -44,12 +55,18 @@ describe("CreateProductForm", () => {
         description: "Desktop client",
       });
     });
+    expect(mocks.replace).toHaveBeenCalledWith(
+      `/dashboard/products/${createdProduct.id}`,
+    );
     expect(mocks.refresh).toHaveBeenCalledOnce();
-    expect(screen.getByRole("textbox", { name: "Name" })).toHaveValue("");
   });
 
   it("sends an empty description as null", async () => {
-    mocks.createProduct.mockResolvedValue(undefined);
+    mocks.createProduct.mockResolvedValue({
+      ...createdProduct,
+      name: "LicenseHub API",
+      description: null,
+    });
     render(<CreateProductForm />);
 
     fireEvent.change(screen.getByRole("textbox", { name: "Name" }), {
@@ -87,6 +104,7 @@ describe("CreateProductForm", () => {
       "Name must not be blank",
     );
     expect(nameInput).toHaveAttribute("aria-invalid", "true");
+    expect(mocks.replace).not.toHaveBeenCalled();
     expect(mocks.refresh).not.toHaveBeenCalled();
   });
 
@@ -109,6 +127,7 @@ describe("CreateProductForm", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "The product already exists",
     );
+    expect(mocks.replace).not.toHaveBeenCalled();
     expect(mocks.refresh).not.toHaveBeenCalled();
   });
 });

@@ -89,6 +89,27 @@ class ActivationManagementControllerTest {
   }
 
   @Test
+  void findAllFiltersActiveMachineActivations() throws Exception {
+    UUID licenseId = UUID.randomUUID();
+    Pageable pageable = PageRequest.of(0, 20, Sort.Direction.DESC, "activatedAt");
+
+    when(activationManagementService.findAllForOwnerByActivity(
+            licenseId, "owner@example.com", true, pageable))
+        .thenReturn(Page.empty(pageable));
+
+    mockMvc
+        .perform(
+            get("/api/licenses/{licenseId}/activations", licenseId)
+                .param("active", "true")
+                .principal(() -> "owner@example.com"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content.length()").value(0));
+
+    verify(activationManagementService)
+        .findAllForOwnerByActivity(licenseId, "owner@example.com", true, pageable);
+  }
+
+  @Test
   void findAllReturns404WhenLicenseIsNotOwned() throws Exception {
     UUID licenseId = UUID.randomUUID();
 

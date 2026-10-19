@@ -3,16 +3,35 @@ import Link from "next/link";
 type PaginationProps = {
   basePath: string;
   currentPage: number;
+  query?: Record<string, string | undefined>;
   totalPages: number;
 };
 
-function pageHref(basePath: string, page: number): string {
-  return page === 1 ? basePath : `${basePath}?page=${page}`;
+function pageHref(
+  basePath: string,
+  page: number,
+  queryValues: Record<string, string | undefined>,
+): string {
+  const query = new URLSearchParams();
+
+  for (const [name, value] of Object.entries(queryValues)) {
+    if (value !== undefined) {
+      query.set(name, value);
+    }
+  }
+
+  if (page > 1) {
+    query.set("page", page.toString());
+  }
+
+  const queryString = query.toString();
+  return queryString === "" ? basePath : `${basePath}?${queryString}`;
 }
 
 export function Pagination({
   basePath,
   currentPage,
+  query = {},
   totalPages,
 }: PaginationProps) {
   if (totalPages <= 1) {
@@ -27,7 +46,7 @@ export function Pagination({
       {currentPage > 1 ? (
         <Link
           className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
-          href={pageHref(basePath, currentPage - 1)}
+          href={pageHref(basePath, currentPage - 1, query)}
         >
           Previous
         </Link>
@@ -44,7 +63,7 @@ export function Pagination({
       {currentPage < totalPages ? (
         <Link
           className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
-          href={pageHref(basePath, currentPage + 1)}
+          href={pageHref(basePath, currentPage + 1, query)}
         >
           Next
         </Link>

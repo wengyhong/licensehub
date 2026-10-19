@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -31,11 +32,15 @@ public class ActivationManagementController {
   public PagedResponse<MachineActivationResponse> findAllByLicenseId(
       @PathVariable UUID licenseId,
       Principal principal,
+      @RequestParam(required = false) Boolean active,
       @PageableDefault(size = 20, sort = "activatedAt", direction = Sort.Direction.DESC)
           Pageable pageable) {
     Page<MachineActivationResponse> result =
-        activationManagementService
-            .findAllForOwner(licenseId, principal.getName(), pageable)
+        (active == null
+                ? activationManagementService.findAllForOwner(
+                    licenseId, principal.getName(), pageable)
+                : activationManagementService.findAllForOwnerByActivity(
+                    licenseId, principal.getName(), active, pageable))
             .map(this::toResponse);
 
     return PagedResponse.from(result);

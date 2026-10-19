@@ -25,6 +25,16 @@ LicenseHub is a full-stack SaaS application for issuing software licenses and ma
 - Frontend component tests and a full-stack Playwright browser journey
 - Docker Compose and separate backend and frontend GitHub Actions pipelines
 
+## Screenshots
+
+| Products | Product details |
+|---|---|
+| ![LicenseHub product list](docs/screenshots/product-list.png) | ![LicenseHub product details with licenses](docs/screenshots/product-details.png) |
+
+| Issue license | License details |
+|---|---|
+| ![LicenseHub issue license form](docs/screenshots/issue-license.png) | ![LicenseHub license details and machine activations](docs/screenshots/license-details.png) |
+
 ## Technology Stack
 
 - Java 21

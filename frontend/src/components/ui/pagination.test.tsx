@@ -66,6 +66,29 @@ describe("Pagination", () => {
         );
     });
 
+    it("preserves filters in pagination links", () => {
+        render(
+            <Pagination
+                basePath="/dashboard/products/123"
+                currentPage={2}
+                query={{ status: "inactive" }}
+                totalPages={3}
+            />,
+        );
+
+        expect(
+            screen.getByRole("link", { name: "Previous" }),
+        ).toHaveAttribute(
+            "href",
+            "/dashboard/products/123?status=inactive",
+        );
+
+        expect(screen.getByRole("link", { name: "Next" })).toHaveAttribute(
+            "href",
+            "/dashboard/products/123?status=inactive&page=3",
+        );
+    });
+
     it("disables Next on the final page", () => {
         render(
             <Pagination

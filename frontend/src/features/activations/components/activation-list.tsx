@@ -1,8 +1,12 @@
 import { DeactivateActivationButton } from "./deactivate-activation-button";
 import type { MachineActivation } from "../types";
+import { ActivityFilterLinks } from "@/components/ui/activity-filter";
+import type { ActivityFilter } from "@/lib/activity-filter";
 
 type ActivationListProps = {
   activations: MachineActivation[];
+  filter: ActivityFilter;
+  filterBasePath: string;
 };
 
 const dateFormatter = new Intl.DateTimeFormat("en-MY", {
@@ -12,6 +16,8 @@ const dateFormatter = new Intl.DateTimeFormat("en-MY", {
 
 export function ActivationList({
   activations,
+  filter,
+  filterBasePath,
 }: ActivationListProps) {
   return (
     <section className="mt-8">
@@ -20,9 +26,19 @@ export function ActivationList({
         Machines that have used this license.
       </p>
 
+      <ActivityFilterLinks
+        ariaLabel="Filter machine activations"
+        basePath={filterBasePath}
+        value={filter}
+      />
+
       {activations.length === 0 ? (
         <div className="mt-5 rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
-          <h3 className="font-medium">No machine activations</h3>
+          <h3 className="font-medium">
+            {filter === "all"
+              ? "No machine activations"
+              : `No ${filter} machine activations`}
+          </h3>
           <p className="mt-2 text-sm text-slate-600">
             Activations will appear when customer software uses this license.
           </p>

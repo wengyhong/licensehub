@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type SubmitEvent } from "react";
+import { useRef, useState, type SubmitEvent } from "react";
 import {
   issueLicense,
   type IssuedLicenseResponse,
@@ -23,6 +23,24 @@ export function IssueLicenseForm({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
+  const expiresAtInputRef = useRef<HTMLInputElement>(null);
+
+  function handleClearExpiration() {
+    if (expiresAtInputRef.current === null) {
+      return;
+    }
+
+    expiresAtInputRef.current.value = "";
+    setFieldErrors((current) => {
+      if (current.expiresAt === undefined) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next.expiresAt;
+      return next;
+    });
+  }
 
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -102,9 +120,45 @@ export function IssueLicenseForm({
     }
   }
 
+  if (issued !== null) {
+    return (
+      <section className="mt-8 rounded-lg border border-slate-200 bg-white p-6">
+        <div
+          className="rounded-md border border-amber-300 bg-amber-50 p-4"
+          role="status"
+        >
+          <h2 className="font-semibold text-amber-950">
+            Save this license key now
+          </h2>
+          <p className="mt-1 text-sm text-amber-900">
+            LicenseHub will not display the full key again.
+          </p>
+
+          <code className="mt-4 block break-all rounded bg-white p-3 text-sm">
+            {issued.licenseKey}
+          </code>
+
+          <button
+            className="mt-3 rounded-md border border-amber-400 bg-white px-3 py-2 text-sm font-medium"
+            onClick={() => void handleCopy()}
+            type="button"
+          >
+            {copied ? "Copied" : "Copy key"}
+          </button>
+
+          {error !== null && (
+            <p className="mt-3 text-sm text-red-700" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="mt-8 rounded-lg border border-slate-200 bg-white p-6">
-      <h2 className="text-xl font-semibold">Issue license</h2>
+      <h2 className="text-xl font-semibold">License details</h2>
       <p className="mt-1 text-sm text-slate-600">
         Generate a license for a customer.
       </p>
@@ -182,16 +236,28 @@ export function IssueLicenseForm({
           >
             Expiration date
           </label>
-          <input
-            aria-describedby={
-              fieldErrors.expiresAt ? "expires-at-error" : undefined
-            }
-            aria-invalid={fieldErrors.expiresAt !== undefined}
-            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2"
-            id="expires-at"
-            name="expiresAt"
-            type="datetime-local"
-          />
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+            <input
+              aria-describedby={
+                fieldErrors.expiresAt ? "expires-at-error" : undefined
+              }
+              aria-invalid={fieldErrors.expiresAt !== undefined}
+              className="w-full rounded-md border border-slate-300 px-3 py-2"
+              id="expires-at"
+              name="expiresAt"
+              ref={expiresAtInputRef}
+              type="datetime-local"
+            />
+
+            <button
+              className="shrink-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              disabled={submitting}
+              onClick={handleClearExpiration}
+              type="button"
+            >
+              Clear date
+            </button>
+          </div>
           {fieldErrors.expiresAt && (
             <p
               className="mt-1 text-sm text-red-700"
@@ -221,31 +287,6 @@ export function IssueLicenseForm({
         </button>
       </form>
 
-      {issued !== null && (
-        <div
-          className="mt-6 rounded-md border border-amber-300 bg-amber-50 p-4"
-          role="status"
-        >
-          <h3 className="font-semibold text-amber-950">
-            Save this license key now
-          </h3>
-          <p className="mt-1 text-sm text-amber-900">
-            LicenseHub will not display the full key again.
-          </p>
-
-          <code className="mt-4 block break-all rounded bg-white p-3 text-sm">
-            {issued.licenseKey}
-          </code>
-
-          <button
-            className="mt-3 rounded-md border border-amber-400 bg-white px-3 py-2 text-sm font-medium"
-            onClick={() => void handleCopy()}
-            type="button"
-          >
-            {copied ? "Copied" : "Copy key"}
-          </button>
-        </div>
-      )}
     </section>
   );
 }

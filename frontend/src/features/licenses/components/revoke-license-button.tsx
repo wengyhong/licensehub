@@ -38,7 +38,7 @@ export function RevokeLicenseButton( {licenseId} : RevokeLicenseProps) {
     }
 
     return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-col items-end gap-2">
       {error !== null && (
         <span className="text-sm text-red-700" role="alert">
           {error}
@@ -46,7 +46,7 @@ export function RevokeLicenseButton( {licenseId} : RevokeLicenseProps) {
       )}
 
       <button
-        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
         disabled={revoking}
         onClick={() => void handleDelete()}
         type="button"

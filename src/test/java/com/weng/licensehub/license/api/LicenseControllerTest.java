@@ -184,6 +184,27 @@ class LicenseControllerTest {
   }
 
   @Test
+  void findAllByProductIdFiltersInactiveLicenses() throws Exception {
+    UUID productId = UUID.randomUUID();
+    Pageable pageable = PageRequest.of(0, 20, Sort.Direction.DESC, "createdAt");
+
+    when(licenseService.findAllByProductIdForOwnerAndActivity(
+            productId, "owner@example.com", false, pageable))
+        .thenReturn(Page.empty(pageable));
+
+    mockMvc
+        .perform(
+            get("/api/products/{productId}/licenses", productId)
+                .param("active", "false")
+                .principal(() -> "owner@example.com"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content.length()").value(0));
+
+    verify(licenseService)
+        .findAllByProductIdForOwnerAndActivity(productId, "owner@example.com", false, pageable);
+  }
+
+  @Test
   void findAllByProductIdReturns404WhenProductDoesNotExist() throws Exception {
 
     UUID productId = UUID.randomUUID();

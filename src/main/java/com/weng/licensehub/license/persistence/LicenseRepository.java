@@ -1,6 +1,7 @@
 package com.weng.licensehub.license.persistence;
 
 import com.weng.licensehub.license.domain.License;
+import com.weng.licensehub.license.domain.LicenseStatus;
 import jakarta.persistence.LockModeType;
 import java.util.Optional;
 import java.util.UUID;
@@ -14,6 +15,12 @@ import org.springframework.data.repository.query.Param;
 public interface LicenseRepository extends JpaRepository<License, UUID> {
 
   Page<License> findAllByProduct_Id(UUID productId, Pageable pageable);
+
+  Page<License> findAllByProduct_IdAndStatus(
+      UUID productId, LicenseStatus status, Pageable pageable);
+
+  Page<License> findAllByProduct_IdAndStatusNot(
+      UUID productId, LicenseStatus status, Pageable pageable);
 
   Optional<License> findByKeyId(String keyId);
 

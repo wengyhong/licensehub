@@ -5,10 +5,15 @@ import { License } from "./types";
 
 export async function getLicensesForProduct(
   productId: string,
-  page:number
+  page: number,
+  active?: boolean,
 ): Promise<PagedResponse<License> | null> {
 
-    const query = new URLSearchParams({page:page.toString(), size:"20"});
+  const query = new URLSearchParams({ page: page.toString(), size: "20" });
+
+  if (active !== undefined) {
+    query.set("active", active.toString());
+  }
 
   const response = await backendFetch(
     `/api/products/${encodeURIComponent(productId)}/licenses?${query.toString()}`,

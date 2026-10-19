@@ -6,11 +6,16 @@ import type { MachineActivation } from "./types";
 
 export async function getActivationsForLicense(
   licenseId: string,
-  page: number
+  page: number,
+  active?: boolean,
 ): Promise<PagedResponse<MachineActivation> | null> {
 
 
-    const query = new URLSearchParams({page: page.toString(), size:"1"});
+  const query = new URLSearchParams({ page: page.toString(), size: "10" });
+
+  if (active !== undefined) {
+    query.set("active", active.toString());
+  }
 
   const response = await backendFetch(
     `/api/licenses/${encodeURIComponent(licenseId)}/activations?${query.toString()}`,

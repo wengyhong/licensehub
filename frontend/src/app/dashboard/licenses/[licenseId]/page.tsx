@@ -8,7 +8,10 @@ type LicenseDetailsPageProps = {
     params: Promise<{
         licenseId: string;
     }>,
-    searchParams: Promise<{ page?: string | string[]; }>
+    searchParams: Promise<{
+        page?: string | string[];
+        status?: string | string[];
+    }>
 };
 
 
@@ -26,11 +29,17 @@ import { getActivationsForLicense } from "@/features/activations/server";
 import { ActivationList } from "@/features/activations/components/activation-list";
 import { parsePage } from "@/lib/pagination";
 import { Pagination } from "@/components/ui/pagination";
+import {
+    activityFilterHref,
+    activityFilterToBoolean,
+    parseActivityFilter,
+} from "@/lib/activity-filter";
 export default async function LicenseDetailsPage({ params, searchParams }: LicenseDetailsPageProps) {
 
 
     const [{ licenseId }, query] = await Promise.all([params, searchParams]);
     const requestedPage = parsePage(query.page);
+    const filter = parseActivityFilter(query.status);
 
     const result = await getLicense(licenseId);
 
@@ -43,16 +52,21 @@ export default async function LicenseDetailsPage({ params, searchParams }: Licen
     }
 
     const license = result.license;
+    const licensePath = `/dashboard/licenses/${license.id}`;
 
 
-    const activationsPage = await getActivationsForLicense(license.id, requestedPage - 1);
+    const activationsPage = await getActivationsForLicense(
+        license.id,
+        requestedPage - 1,
+        activityFilterToBoolean(filter),
+    );
 
     if (activationsPage === null) {
         redirect("/login");
     }
 
     if (activationsPage.totalElements > 0 && requestedPage > activationsPage.totalPages) {
-        redirect(`/dashboard/licenses/${license.id}?page=${activationsPage.totalPages}`);
+        redirect(activityFilterHref(licensePath, filter, activationsPage.totalPages));
     }
     return (
         <main className="mx-auto max-w-6xl px-6 py-12">
@@ -70,11 +84,17 @@ export default async function LicenseDetailsPage({ params, searchParams }: Licen
                         <p className="mt-2 text-slate-600">{license.customerEmail}</p>
                     </div>
 
-                    <span
-                        className={`rounded-full px-3 py-1 text-sm font-medium ${statusClasses[license.status]}`}
-                    >
-                        {license.status}
-                    </span>
+                    <div className="flex shrink-0 items-start gap-3">
+                        <span
+                            className={`rounded-full px-3 py-1 text-sm font-medium ${statusClasses[license.status]}`}
+                        >
+                            {license.status}
+                        </span>
+
+                        {license.status !== "REVOKED" && (
+                            <RevokeLicenseButton licenseId={license.id} />
+                        )}
+                    </div>
                 </div>
 
                 <dl className="mt-8 grid gap-6 border-t border-slate-200 pt-6 sm:grid-cols-2">
@@ -113,24 +133,17 @@ export default async function LicenseDetailsPage({ params, searchParams }: Licen
                 </dl>
             </div>
 
-            <ActivationList activations={activationsPage.content} />
+            <ActivationList
+                activations={activationsPage.content}
+                filter={filter}
+                filterBasePath={licensePath}
+            />
             <Pagination
-                basePath={`/dashboard/licenses/${license.id}`}
+                basePath={licensePath}
                 currentPage={activationsPage.page + 1}
+                query={{ status: filter === "all" ? undefined : filter }}
                 totalPages={activationsPage.totalPages}
             />
-            {license.status !== "REVOKED" && (
-                <section className="mt-8 rounded-lg border border-red-200 bg-red-50 p-6">
-                    <h2 className="text-lg font-semibold text-red-950">Revoke license</h2>
-                    <p className="mt-1 text-sm text-red-800">
-                        Revoking prevents this license from being used for future activations.
-                    </p>
-
-                    <div className="mt-4">
-                        <RevokeLicenseButton licenseId={license.id} />
-                    </div>
-                </section>
-            )}
         </main>
     );
 }

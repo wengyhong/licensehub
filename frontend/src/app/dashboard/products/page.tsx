@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getProducts } from "@/features/products/server";
-import { CreateProductForm } from "@/features/products/components/create-product-form";
 import Link from "next/link";
 import { Pagination } from "@/components/ui/pagination";
 import { parsePage } from "@/lib/pagination";
@@ -36,13 +35,21 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     }
     return (
         <main className="mx-auto max-w-6xl px-6 py-12">
-            <div>
-                <h1 className="text-3xl font-semibold">Products</h1>
-                <p className="mt-2 text-slate-600">
-                    Manage the software products you license.
-                </p>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-semibold">Products</h1>
+                    <p className="mt-2 text-slate-600">
+                        Manage the software products you license.
+                    </p>
+                </div>
+
+                <Link
+                    className="rounded-md bg-slate-900 px-4 py-2 text-white hover:bg-slate-700"
+                    href="/dashboard/products/new"
+                >
+                    Create product
+                </Link>
             </div>
-            <CreateProductForm />
 
             {productsPage.content.length === 0 ? (
                 <div className="mt-8 rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
