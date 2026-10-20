@@ -1,6 +1,7 @@
 package com.weng.licensehub.activation.api;
 
 import com.weng.licensehub.activation.application.ActivationService;
+import com.weng.licensehub.activation.application.IssuedActivation;
 import com.weng.licensehub.activation.domain.MachineActivation;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -22,13 +23,23 @@ public class ActivationController {
 
   @PostMapping("/activations")
   @ResponseStatus(HttpStatus.OK)
-  public ActivationResponse activate(@Valid @RequestBody ActivationMachineRequest request) {
+  public IssuedActivationResponse activate(@Valid @RequestBody ActivationMachineRequest request) {
 
-    MachineActivation activation =
+    IssuedActivation issued =
         activationService.activate(
-            request.licenseKey(), request.machineFingerprint(), request.machineName());
+            request.productId(),
+            request.licenseKey(),
+            request.machineFingerprint(),
+            request.machineName());
 
-    return (toResponse(activation));
+    MachineActivation activation = issued.activation();
+    return new IssuedActivationResponse(
+        activation.getId(),
+        activation.getLicense().getId(),
+        activation.getMachineName(),
+        activation.getActivatedAt(),
+        activation.getLastSeenAt(),
+        issued.activationToken());
   }
 
   private ActivationResponse toResponse(MachineActivation activation) {
@@ -44,13 +55,15 @@ public class ActivationController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void deactivate(@Valid @RequestBody DeactivateMachineRequest request) {
 
-    activationService.deactivate(request.licenseKey(), request.machineFingerprint());
+    activationService.deactivate(
+        request.productId(), request.activationToken(), request.machineFingerprint());
   }
 
   @PostMapping("/activations/validate")
   public ActivationResponse validate(@Valid @RequestBody ValidateActivationRequest request) {
     MachineActivation activation =
-        activationService.validate(request.licenseKey(), request.machineFingerprint());
+        activationService.validate(
+            request.productId(), request.activationToken(), request.machineFingerprint());
 
     return toResponse(activation);
   }

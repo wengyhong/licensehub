@@ -214,13 +214,14 @@ class SecurityConfigurationIntegrationTest {
                 .content(
                     """
                                                 {
-                                                  "licenseKey": "not-a-valid-license-key",
+                                                  "productId": "11111111-1111-1111-1111-111111111111",
+                                                  "activationToken": "not-a-valid-activation-token",
                                                   "machineFingerprint": "test-machine"
                                                 }
                                                 """))
         .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.title").value("Invalid license key"))
-        .andExpect(jsonPath("$.detail").value("Invalid license key"));
+        .andExpect(jsonPath("$.title").value("Invalid activation token"))
+        .andExpect(jsonPath("$.detail").value("Invalid activation token"));
   }
 
   @Test

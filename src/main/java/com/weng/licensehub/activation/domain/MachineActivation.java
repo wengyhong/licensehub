@@ -50,6 +50,9 @@ public class MachineActivation {
   @Column(name = "deactivated_at")
   private Instant deactivatedAt;
 
+  @Column(name = "activation_token_hash", length = 64)
+  private String activationTokenHash;
+
   @PrePersist
   public void prePersist() {
     Instant now = Instant.now();
@@ -89,6 +92,10 @@ public class MachineActivation {
     return deactivatedAt == null;
   }
 
+  public String getActivationTokenHash() {
+    return activationTokenHash;
+  }
+
   public void markSeen(Instant seenAt) {
     Objects.requireNonNull(seenAt, "seenAt Must Not Be Null");
 
@@ -111,5 +118,18 @@ public class MachineActivation {
     }
 
     this.deactivatedAt = deactivatedAt;
+  }
+
+  public void rotateActivationToken(String activationTokenHash) {
+    if (!isActive()) {
+      throw new IllegalStateException(
+          "A deactivated machine activation cannot receive a new token");
+    }
+
+    if (activationTokenHash == null || activationTokenHash.length() != 64) {
+      throw new IllegalArgumentException("activationTokenHash must be a 64-character SHA-256 hash");
+    }
+
+    this.activationTokenHash = activationTokenHash;
   }
 }

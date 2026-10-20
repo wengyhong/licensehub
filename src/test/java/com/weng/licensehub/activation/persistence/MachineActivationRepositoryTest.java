@@ -147,6 +147,41 @@ class MachineActivationRepositoryTest {
   }
 
   @Test
+  void findsOnlyActiveActivationByTokenHash() {
+    Product product = productRepository.save(new Product(owner, "Product", null));
+    License license =
+        licenseRepository.save(
+            new License(
+                product, "CCCCCCCCCCCCCCCC", "c".repeat(64), "customer@example.com", 2, null));
+
+    String activeTokenHash = "a".repeat(64);
+    String inactiveTokenHash = "b".repeat(64);
+
+    MachineActivation active = new MachineActivation(license, "1".repeat(64), "Active laptop");
+    active.rotateActivationToken(activeTokenHash);
+    activationRepository.save(active);
+
+    MachineActivation inactive = new MachineActivation(license, "2".repeat(64), "Inactive laptop");
+    inactive.rotateActivationToken(inactiveTokenHash);
+    activationRepository.save(inactive);
+
+    entityManager.flush();
+    inactive.deactivate(Instant.now());
+    entityManager.flush();
+
+    UUID activeId = active.getId();
+    entityManager.clear();
+
+    assertThat(
+            activationRepository.findByActivationTokenHashAndDeactivatedAtIsNull(activeTokenHash))
+        .map(MachineActivation::getId)
+        .contains(activeId);
+    assertThat(
+            activationRepository.findByActivationTokenHashAndDeactivatedAtIsNull(inactiveTokenHash))
+        .isEmpty();
+  }
+
+  @Test
   void filtersActiveAndInactiveActivationsForLicense() {
     Product product = productRepository.save(new Product(owner, "Product", null));
     License license =

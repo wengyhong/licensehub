@@ -14,6 +14,7 @@ LicenseHub is a full-stack SaaS application for issuing software licenses and ma
 - Owner-scoped product management
 - Secure software license generation and revocation
 - Public machine activation, deactivation, and validation
+- Product-bound activation with per-machine activation tokens
 - Activation limits with concurrency protection
 - Owner-facing activation history and deactivation
 - Pagination and Problem Details error responses
@@ -22,6 +23,7 @@ LicenseHub is a full-stack SaaS application for issuing software licenses and ma
 - OpenAPI, Swagger UI, and an Actuator health endpoint
 - Unit, MVC slice, repository, and Testcontainers integration tests
 - Responsive Next.js management dashboard
+- Reusable .NET activation client and interactive console demo
 - Frontend component tests and a full-stack Playwright browser journey
 - Docker Compose and separate backend and frontend GitHub Actions pipelines
 
@@ -49,6 +51,7 @@ LicenseHub is a full-stack SaaS application for issuing software licenses and ma
 - Maven Wrapper, Docker Compose, and GitHub Actions
 - Next.js 16, React 19, TypeScript, and Tailwind CSS
 - Vitest, Testing Library, and Playwright
+- .NET 10, C#, a `netstandard2.1` client library, and xUnit
 
 ## Architecture
 
@@ -73,6 +76,11 @@ frontend/src
 |-- components          Shared UI components
 |-- features            Auth, product, license, and activation UI/API modules
 `-- lib                 Shared API and pagination utilities
+
+clients
+|-- LicenseHub.Client         Reusable activation API client (`netstandard2.1`)
+|-- LicenseHub.Client.Tests   HTTP-boundary tests for the client
+`-- LicenseHub.ActivationDemo Interactive .NET console application
 ```
 
 The main responsibilities are:
@@ -110,7 +118,7 @@ The full license key is returned only when the license is issued. It is not stor
 
 ### MachineActivation
 
-Represents one machine activated against a license. Machine fingerprints are hashed before storage. Deactivation preserves history, and the same machine may later create a new activation.
+Represents one machine activated against a license. Machine fingerprints and activation tokens are hashed before storage. Deactivation preserves history, and the same machine may later create a new activation.
 
 ## API Endpoints
 
@@ -151,7 +159,7 @@ Represents one machine activated against a license. Machine fingerprints are has
 | POST | `/api/activations/deactivate` | Deactivate the requesting machine |
 | POST | `/api/activations/validate` | Validate an active machine and update its last-seen time |
 
-These endpoints use the license key as their credential and do not require a user session.
+These endpoints do not require a user session. Initial activation requires the license key and the expected product ID. A successful activation returns a per-machine activation token; subsequent validation and deactivation requests use that token, the product ID, and the machine fingerprint instead of repeatedly transmitting the license key.
 
 ### Activation management
 
@@ -216,6 +224,7 @@ Current migrations:
 5. Create users
 6. Add product ownership
 7. Require an owner for every product
+8. Add hashed activation tokens
 
 Migration files live in `src/main/resources/db/migration`. Never edit an applied migration in a shared environment; add a new versioned migration.
 
@@ -225,6 +234,7 @@ Migration files live in `src/main/resources/db/migration`. Never edit an applied
 
 - Java 21
 - Node.js 24 and npm
+- .NET 10 SDK
 - Docker Desktop when using the provided PostgreSQL container or running integration tests
 - Git
 
@@ -273,6 +283,21 @@ npm.cmd run dev
 
 The frontend starts at <http://localhost:3000> and proxies API requests to the backend configured by `BACKEND_URL`.
 
+### Run the .NET activation demo
+
+First, use the web dashboard to create a product and issue a license. Copy the product ID and the full license key shown at issuance; the full key cannot be recovered later.
+
+With the backend running, open another PowerShell terminal in the repository root:
+
+```powershell
+$env:LICENSEHUB_API_URL = "http://localhost:8080"
+$env:LICENSEHUB_PRODUCT_ID = "replace-with-your-product-id"
+
+dotnet run --project clients/LicenseHub.ActivationDemo
+```
+
+The demo supports activation, validation, and deactivation. Activation asks for the license key once and saves the returned activation token for later operations. The demo stores its generated machine ID and product-specific activation token under `%LOCALAPPDATA%\LicenseHub\ActivationDemo`.
+
 ## Running with Docker Compose
 
 Create an ignored `.env` file in the project root:
@@ -315,7 +340,7 @@ Run one test class:
 .\mvnw.cmd -Dtest=ActivationRateLimitIntegrationTest test
 ```
 
-The suite contains unit, MockMvc controller, PostgreSQL repository, and full integration tests. GitHub Actions runs `clean verify` and builds the Docker image on pushes and pull requests.
+The suite contains unit, MockMvc controller, PostgreSQL repository, and full integration tests.
 
 Run frontend linting, unit tests, and the production build:
 
@@ -335,6 +360,15 @@ npm.cmd run test:e2e
 
 The Playwright test registers a user, logs in, creates a product, issues a license, verifies that the full key is not recoverable from the details page, and revokes the license. Frontend CI runs both the fast verification job and this full-stack browser test.
 
+Run the .NET client tests and build the console demo:
+
+```powershell
+dotnet test clients/LicenseHub.Client.Tests/LicenseHub.Client.Tests.csproj --configuration Release
+dotnet build clients/LicenseHub.ActivationDemo/LicenseHub.ActivationDemo.csproj --configuration Release
+```
+
+Backend and Client CI runs the Maven verification build, tests the reusable .NET client, builds the activation demo, and builds the backend Docker image on pushes and pull requests.
+
 ## Configuration
 
 | Environment variable | Default | Purpose |
@@ -344,6 +378,8 @@ The Playwright test registers a user, logs in, creates a product, issues a licen
 | `LICENSEHUB_DB_PASSWORD` | None | Required PostgreSQL password |
 | `LICENSEHUB_ACTIVATION_RATE_LIMIT` | `60` | Public activation requests allowed per client address per minute |
 | `BACKEND_URL` | `http://localhost:8080` | Backend origin used by Next.js rewrites |
+| `LICENSEHUB_API_URL` | `http://localhost:8080` | Backend origin used by the .NET activation demo |
+| `LICENSEHUB_PRODUCT_ID` | None | Product UUID expected by the .NET activation demo |
 
 Do not commit real credentials. The repository ignores `.env`.
 
@@ -355,6 +391,7 @@ Do not commit real credentials. The repository ignores `.env`.
 - **Owner-scoped queries:** other accounts cannot discover or modify an owner's resources.
 - **Secure license keys:** only the high-entropy secret's hash is stored.
 - **Hashed fingerprints:** raw machine identifiers are not persisted.
+- **Per-machine activation tokens:** the license key is exchanged during activation for a token whose hash is stored server-side and whose scope is restricted to one product and machine.
 - **Activation locking:** concurrent requests cannot exceed the machine limit.
 - **Flyway and Hibernate validation:** schema changes are explicit and reviewable.
 - **Session authentication and CSRF:** designed for the planned browser frontend.
@@ -370,5 +407,4 @@ Do not commit real credentials. The repository ignores `.env`.
 - License keys cannot be recovered after issuance because their secrets are not stored.
 - Operational metrics are limited to the current Actuator setup.
 - The application has not yet been deployed to a public production environment.
-- Activation requests are not yet explicitly bound to an expected product identifier.
 - Client validation currently requires an online request and has no signed offline grace period.
