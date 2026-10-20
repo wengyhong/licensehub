@@ -46,9 +46,6 @@ var operationName = action switch
     _ => "Deactivation"
 };
 
-Console.Write("License key: ");
-var licenseKey = Console.ReadLine()?.Trim();
-
 string machineFingerprint;
 
 try
@@ -70,10 +67,43 @@ catch (UnauthorizedAccessException)
 
 Console.WriteLine($"Machine ID: {machineFingerprint}");
 
-if (string.IsNullOrWhiteSpace(licenseKey))
+string? licenseKey = null;
+string? activationToken = null;
+
+if (isActivation)
 {
-    Console.Error.WriteLine("License key is required.");
-    return;
+    Console.Write("License key: ");
+    licenseKey = Console.ReadLine()?.Trim();
+
+    if (string.IsNullOrWhiteSpace(licenseKey))
+    {
+        Console.Error.WriteLine("License key is required.");
+        return;
+    }
+}
+else
+{
+    try
+    {
+        activationToken = ReadActivationToken(productId);
+    }
+    catch (IOException)
+    {
+        Console.Error.WriteLine("The saved activation token could not be read.");
+        return;
+    }
+    catch (UnauthorizedAccessException)
+    {
+        Console.Error.WriteLine("The saved activation token could not be accessed.");
+        return;
+    }
+
+    if (string.IsNullOrWhiteSpace(activationToken))
+    {
+        Console.Error.WriteLine(
+            "No activation token is saved for this product. Activate this machine first.");
+        return;
+    }
 }
 
 HttpResponseMessage response;
@@ -87,7 +117,7 @@ try
 
         var request = new ActivationRequest(
             productId,
-            licenseKey,
+            licenseKey!,
             machineFingerprint,
             machineName);
 
@@ -99,7 +129,7 @@ try
     {
         var request = new ValidateActivationRequest(
             productId,
-            licenseKey,
+            activationToken!,
             machineFingerprint);
 
         response = await httpClient.PostAsJsonAsync(
@@ -110,7 +140,7 @@ try
     {
         var request = new DeactivateMachineRequest(
             productId,
-            licenseKey,
+            activationToken!,
             machineFingerprint);
 
         response = await httpClient.PostAsJsonAsync(
@@ -195,6 +225,23 @@ if (!response.IsSuccessStatusCode)
 
 if (!isActivation && !isValidation)
 {
+    try
+    {
+        DeleteActivationToken(productId);
+    }
+    catch (IOException)
+    {
+        Console.Error.WriteLine(
+            "Deactivation succeeded, but the local activation token could not be deleted.");
+        return;
+    }
+    catch (UnauthorizedAccessException)
+    {
+        Console.Error.WriteLine(
+            "Deactivation succeeded, but the local activation token could not be deleted.");
+        return;
+    }
+
     Console.WriteLine("Deactivation successful");
     return;
 }
@@ -209,6 +256,32 @@ if (activation is null)
     return;
 }
 
+if (isActivation)
+{
+    if (string.IsNullOrWhiteSpace(activation.ActivationToken))
+    {
+        Console.Error.WriteLine("The server did not return an activation token.");
+        return;
+    }
+
+    try
+    {
+        SaveActivationToken(productId, activation.ActivationToken);
+    }
+    catch (IOException)
+    {
+        Console.Error.WriteLine(
+            "Activation succeeded, but the activation token could not be saved locally.");
+        return;
+    }
+    catch (UnauthorizedAccessException)
+    {
+        Console.Error.WriteLine(
+            "Activation succeeded, but the activation token could not be saved locally.");
+        return;
+    }
+}
+
 Console.WriteLine();
 Console.WriteLine($"{operationName} successful");
 Console.WriteLine($"Activation ID: {activation.Id}");
@@ -219,10 +292,7 @@ Console.WriteLine($"Last seen at:  {activation.LastSeenAt}");
 
 static string GetOrCreateMachineFingerprint()
 {
-    var applicationDataDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "LicenseHub",
-        "ActivationDemo");
+    var applicationDataDirectory = GetApplicationDataDirectory();
 
     var machineIdPath = Path.Combine(
         applicationDataDirectory,
@@ -246,6 +316,45 @@ static string GetOrCreateMachineFingerprint()
     return machineId;
 }
 
+static string GetApplicationDataDirectory()
+{
+    return Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "LicenseHub",
+        "ActivationDemo");
+}
+
+static string GetActivationTokenPath(Guid productId)
+{
+    return Path.Combine(
+        GetApplicationDataDirectory(),
+        $"activation-token-{productId:D}.txt");
+}
+
+static string? ReadActivationToken(Guid productId)
+{
+    var tokenPath = GetActivationTokenPath(productId);
+    return File.Exists(tokenPath)
+        ? File.ReadAllText(tokenPath).Trim()
+        : null;
+}
+
+static void SaveActivationToken(Guid productId, string activationToken)
+{
+    Directory.CreateDirectory(GetApplicationDataDirectory());
+    File.WriteAllText(GetActivationTokenPath(productId), activationToken);
+}
+
+static void DeleteActivationToken(Guid productId)
+{
+    var tokenPath = GetActivationTokenPath(productId);
+
+    if (File.Exists(tokenPath))
+    {
+        File.Delete(tokenPath);
+    }
+}
+
 internal sealed record ActivationRequest(
     Guid ProductId,
     string LicenseKey,
@@ -254,12 +363,12 @@ internal sealed record ActivationRequest(
 
 internal sealed record ValidateActivationRequest(
     Guid ProductId,
-    string LicenseKey,
+    string ActivationToken,
     string MachineFingerprint);
 
 internal sealed record DeactivateMachineRequest(
     Guid ProductId,
-    string LicenseKey,
+    string ActivationToken,
     string MachineFingerprint);
 
 internal sealed record ActivationResponse(
@@ -267,7 +376,8 @@ internal sealed record ActivationResponse(
     Guid LicenseId,
     string? MachineName,
     DateTimeOffset ActivatedAt,
-    DateTimeOffset LastSeenAt);
+    DateTimeOffset LastSeenAt,
+    string? ActivationToken);
 
 internal sealed record ApiProblem(
     string? Type,

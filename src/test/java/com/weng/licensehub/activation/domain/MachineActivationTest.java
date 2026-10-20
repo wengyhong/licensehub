@@ -13,16 +13,7 @@ class MachineActivationTest {
 
   @Test
   void markSeenAdvancesLastSeenTime() {
-
-    UserAccount owner = new UserAccount("owner@example.com", "test-password-hash");
-
-    Product product = new Product(owner, "Test Product", null);
-
-    License license =
-        new License(product, "0123456789ABCDEF", "a".repeat(64), "customer@example.com", 1, null);
-
-    MachineActivation activation =
-        new MachineActivation(license, "b".repeat(64), "Development laptop");
+    MachineActivation activation = createActivation();
 
     activation.prePersist();
 
@@ -36,15 +27,7 @@ class MachineActivationTest {
 
   @Test
   void deactivatedActivationIsNoLongerActive() {
-    UserAccount owner = new UserAccount("owner@example.com", "test-password-hash");
-
-    Product product = new Product(owner, "Test Product", null);
-
-    License license =
-        new License(product, "0123456789ABCDEF", "a".repeat(64), "customer@example.com", 1, null);
-
-    MachineActivation activation =
-        new MachineActivation(license, "b".repeat(64), "Development laptop");
+    MachineActivation activation = createActivation();
 
     activation.prePersist();
 
@@ -58,7 +41,46 @@ class MachineActivationTest {
 
   @Test
   void cannotMarkDeactivatedActivationAsSeen() {
+    MachineActivation activation = createActivation();
 
+    activation.prePersist();
+    activation.deactivate(Instant.now());
+
+    assertThatThrownBy(() -> activation.markSeen(Instant.now()))
+        .isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void rotatesActivationTokenHash() {
+    MachineActivation activation = createActivation();
+
+    activation.rotateActivationToken("c".repeat(64));
+    activation.rotateActivationToken("d".repeat(64));
+
+    assertThat(activation.getActivationTokenHash()).isEqualTo("d".repeat(64));
+  }
+
+  @Test
+  void rejectsInvalidActivationTokenHash() {
+    MachineActivation activation = createActivation();
+
+    assertThatThrownBy(() -> activation.rotateActivationToken("too-short"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("activationTokenHash must be a 64-character SHA-256 hash");
+  }
+
+  @Test
+  void cannotRotateTokenForDeactivatedActivation() {
+    MachineActivation activation = createActivation();
+    activation.prePersist();
+    activation.deactivate(activation.getLastSeenAt());
+
+    assertThatThrownBy(() -> activation.rotateActivationToken("c".repeat(64)))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("A deactivated machine activation cannot receive a new token");
+  }
+
+  private MachineActivation createActivation() {
     UserAccount owner = new UserAccount("owner@example.com", "test-password-hash");
 
     Product product = new Product(owner, "Test Product", null);
@@ -66,13 +88,6 @@ class MachineActivationTest {
     License license =
         new License(product, "0123456789ABCDEF", "a".repeat(64), "customer@example.com", 1, null);
 
-    MachineActivation activation =
-        new MachineActivation(license, "b".repeat(64), "Development laptop");
-
-    activation.prePersist();
-    activation.deactivate(Instant.now());
-
-    assertThatThrownBy(() -> activation.markSeen(Instant.now()))
-        .isInstanceOf(IllegalStateException.class);
+    return new MachineActivation(license, "b".repeat(64), "Development laptop");
   }
 }

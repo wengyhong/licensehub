@@ -7,5 +7,5 @@ import java.util.UUID;
 
 public record DeactivateMachineRequest(
     @NotNull UUID productId,
-    @NotBlank @Size(max = 100) String licenseKey,
+    @NotBlank @Size(max = 100) String activationToken,
     @NotBlank @Size(max = 512) String machineFingerprint) {}

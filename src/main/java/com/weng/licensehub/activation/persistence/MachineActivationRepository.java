@@ -13,6 +13,9 @@ public interface MachineActivationRepository extends JpaRepository<MachineActiva
   Optional<MachineActivation> findByLicense_IdAndMachineFingerprintHashAndDeactivatedAtIsNull(
       UUID licenseId, String machineFingerprintHash);
 
+  Optional<MachineActivation> findByActivationTokenHashAndDeactivatedAtIsNull(
+      String activationTokenHash);
+
   // How many active machines currently use this license?
   long countByLicense_IdAndDeactivatedAtIsNull(UUID licenseId);
 

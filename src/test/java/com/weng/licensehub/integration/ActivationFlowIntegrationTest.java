@@ -38,6 +38,8 @@ class ActivationFlowIntegrationTest {
 
   private record IssuedLicenseDetails(String licenseId, String licenseKey) {}
 
+  private record ActivatedMachine(String activationId, String activationToken) {}
+
   @Test
   void completesActivationLifecycle() throws Exception {
 
@@ -46,20 +48,28 @@ class ActivationFlowIntegrationTest {
 
     IssuedLicenseDetails issued = issueLicense(productId);
     String licenseKey = issued.licenseKey();
-    String firstActivationId =
+    ActivatedMachine firstActivation =
         activateMachine(productId, licenseKey, "integration-machine-001", "Integration laptop");
 
-    String repeatedActivationId =
+    ActivatedMachine repeatedActivation =
         activateMachine(productId, licenseKey, "integration-machine-001", "Integration laptop");
 
-    assertThat(repeatedActivationId).isEqualTo(firstActivationId);
+    assertThat(repeatedActivation.activationId()).isEqualTo(firstActivation.activationId());
+    assertThat(repeatedActivation.activationToken())
+        .isNotEqualTo(firstActivation.activationToken());
 
-    deactivateMachine(productId, licenseKey, "integration-machine-001");
+    validateMachine(
+        productId,
+        repeatedActivation.activationToken(),
+        "integration-machine-001",
+        repeatedActivation.activationId());
 
-    String reactivatedId =
+    deactivateMachine(productId, repeatedActivation.activationToken(), "integration-machine-001");
+
+    ActivatedMachine reactivated =
         activateMachine(productId, licenseKey, "integration-machine-001", "Integration laptop");
 
-    assertThat(reactivatedId).isNotEqualTo(firstActivationId);
+    assertThat(reactivated.activationId()).isNotEqualTo(firstActivation.activationId());
 
     mockMvc
         .perform(
@@ -140,7 +150,7 @@ class ActivationFlowIntegrationTest {
         response.get("license").get("id").asText(), response.get("licenseKey").asText());
   }
 
-  private String activateMachine(
+  private ActivatedMachine activateMachine(
       String productId, String licenseKey, String fingerprint, String machineName)
       throws Exception {
 
@@ -168,13 +178,44 @@ class ActivationFlowIntegrationTest {
     JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
 
     String activationId = response.get("id").asText();
+    String activationToken = response.get("activationToken").asText();
 
     assertThat(activationId).isNotBlank();
+    assertThat(activationToken).startsWith("LA_");
 
-    return activationId;
+    return new ActivatedMachine(activationId, activationToken);
   }
 
-  private void deactivateMachine(String productId, String licenseKey, String fingerprint)
+  private void validateMachine(
+      String productId, String activationToken, String fingerprint, String expectedActivationId)
+      throws Exception {
+    String requestBody =
+        objectMapper.writeValueAsString(
+            Map.of(
+                "productId",
+                productId,
+                "activationToken",
+                activationToken,
+                "machineFingerprint",
+                fingerprint));
+
+    mockMvc
+        .perform(
+            post("/api/activations/validate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestBody))
+        .andExpect(status().isOk())
+        .andExpect(
+            result ->
+                assertThat(
+                        objectMapper
+                            .readTree(result.getResponse().getContentAsString())
+                            .get("id")
+                            .asText())
+                    .isEqualTo(expectedActivationId));
+  }
+
+  private void deactivateMachine(String productId, String activationToken, String fingerprint)
       throws Exception {
 
     String requestBody =
@@ -182,8 +223,8 @@ class ActivationFlowIntegrationTest {
             Map.of(
                 "productId",
                 productId,
-                "licenseKey",
-                licenseKey,
+                "activationToken",
+                activationToken,
                 "machineFingerprint",
                 fingerprint));
 

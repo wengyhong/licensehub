@@ -1,9 +1,9 @@
 package com.weng.licensehub.shared.api;
 
 import com.weng.licensehub.activation.application.ActivationLimitExceededException;
+import com.weng.licensehub.activation.application.InvalidActivationTokenException;
 import com.weng.licensehub.activation.application.LicenseNotActivatableException;
 import com.weng.licensehub.activation.application.MachineActivationNotFoundException;
-import com.weng.licensehub.activation.application.MachineNotActivatedException;
 import com.weng.licensehub.license.application.InvalidLicenseKeyException;
 import com.weng.licensehub.license.application.LicenseNotFoundException;
 import com.weng.licensehub.product.application.ProductHasLicensesException;
@@ -50,6 +50,16 @@ public class ApiExceptionHandler {
         ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, exception.getMessage());
 
     problem.setTitle("Invalid license key");
+
+    return problem;
+  }
+
+  @ExceptionHandler(InvalidActivationTokenException.class)
+  public ProblemDetail handleInvalidActivationToken(InvalidActivationTokenException exception) {
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, exception.getMessage());
+
+    problem.setTitle("Invalid activation token");
 
     return problem;
   }
@@ -151,17 +161,6 @@ public class ApiExceptionHandler {
         ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
 
     problem.setTitle("Machine activation not found");
-
-    return problem;
-  }
-
-  @ExceptionHandler(MachineNotActivatedException.class)
-  public ProblemDetail handleMachineNotActivated(MachineNotActivatedException exception) {
-
-    ProblemDetail problem =
-        ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, exception.getMessage());
-
-    problem.setTitle("Machine not activated");
 
     return problem;
   }

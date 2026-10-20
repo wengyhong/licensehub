@@ -22,22 +22,25 @@ public class ActivationService {
   private final MachineActivationRepository machineActivationRepository;
   private final Clock clock;
   private final LicenseRepository licenseRepository;
+  private final ActivationTokenGenerator activationTokenGenerator;
 
   public ActivationService(
       LicenseKeyVerifier licenseKeyVerifier,
       Sha256Hasher sha256Hasher,
       MachineActivationRepository machineActivationRepository,
       Clock clock,
-      LicenseRepository licenseRepository) {
+      LicenseRepository licenseRepository,
+      ActivationTokenGenerator activationTokenGenerator) {
     this.licenseKeyVerifier = licenseKeyVerifier;
     this.sha256Hasher = sha256Hasher;
     this.machineActivationRepository = machineActivationRepository;
     this.clock = clock;
     this.licenseRepository = licenseRepository;
+    this.activationTokenGenerator = activationTokenGenerator;
   }
 
   @Transactional
-  public MachineActivation activate(
+  public IssuedActivation activate(
       UUID productId, String fullLicenseKey, String machineFingerprint, String machineName) {
     License verifiedLicense = licenseKeyVerifier.verify(fullLicenseKey);
 
@@ -64,7 +67,7 @@ public class ActivationService {
       MachineActivation activation = existing.orElseThrow();
 
       activation.markSeen(now);
-      return activation;
+      return issueActivationToken(activation);
     }
 
     long activeCount =
@@ -75,56 +78,65 @@ public class ActivationService {
     }
 
     MachineActivation activation = new MachineActivation(license, fingerprintHash, machineName);
+    IssuedActivation issued = issueActivationToken(activation);
 
-    return machineActivationRepository.save(activation);
+    machineActivationRepository.save(activation);
+    return issued;
   }
 
   @Transactional
-  public void deactivate(UUID productId, String licenseKey, String machineFingerprint) {
-    License verifiedLicense = licenseKeyVerifier.verify(licenseKey);
+  public void deactivate(UUID productId, String activationToken, String machineFingerprint) {
+    MachineActivation activation =
+        requireActiveActivation(productId, activationToken, machineFingerprint);
 
-    License license =
-        licenseRepository
-            .findByIdForUpdate(verifiedLicense.getId())
-            .orElseThrow(LicenseNotActivatableException::new);
-
-    requireProduct(license, productId);
-
-    String fingerprintHash = sha256Hasher.hash(machineFingerprint);
-
-    machineActivationRepository
-        .findByLicense_IdAndMachineFingerprintHashAndDeactivatedAtIsNull(
-            license.getId(), fingerprintHash)
-        .ifPresent(a -> a.deactivate(clock.instant()));
+    activation.deactivate(clock.instant());
   }
 
   @Transactional
-  public MachineActivation validate(UUID productId, String licenseKey, String machineFingerprint) {
-    License verifiedLicense = licenseKeyVerifier.verify(licenseKey);
+  public MachineActivation validate(
+      UUID productId, String activationToken, String machineFingerprint) {
+    MachineActivation activation =
+        requireActiveActivation(productId, activationToken, machineFingerprint);
+    License license = activation.getLicense();
     Instant now = clock.instant();
 
-    requireProduct(verifiedLicense, productId);
-
-    if (!verifiedLicense.canActivateAt(now)) {
+    if (!license.canActivateAt(now)) {
       throw new LicenseNotActivatableException();
     }
 
-    String fingerprintHash = sha256Hasher.hash(machineFingerprint);
+    activation.markSeen(now);
 
-    MachineActivation machineActivation =
-        machineActivationRepository
-            .findByLicense_IdAndMachineFingerprintHashAndDeactivatedAtIsNull(
-                verifiedLicense.getId(), fingerprintHash)
-            .orElseThrow(() -> new MachineNotActivatedException());
-
-    machineActivation.markSeen(clock.instant());
-
-    return machineActivation;
+    return activation;
   }
 
   private void requireProduct(License license, UUID productId) {
     if (!productId.equals(license.getProduct().getId())) {
       throw new InvalidLicenseKeyException();
     }
+  }
+
+  private IssuedActivation issueActivationToken(MachineActivation activation) {
+    GeneratedActivationToken generated = activationTokenGenerator.generate();
+    activation.rotateActivationToken(generated.tokenHash());
+    return new IssuedActivation(activation, generated.fullToken());
+  }
+
+  private MachineActivation requireActiveActivation(
+      UUID productId, String activationToken, String machineFingerprint) {
+    String tokenHash = sha256Hasher.hash(activationToken);
+    MachineActivation activation =
+        machineActivationRepository
+            .findByActivationTokenHashAndDeactivatedAtIsNull(tokenHash)
+            .orElseThrow(InvalidActivationTokenException::new);
+
+    boolean belongsToProduct = productId.equals(activation.getLicense().getProduct().getId());
+    boolean matchesMachine =
+        sha256Hasher.matches(machineFingerprint, activation.getMachineFingerprintHash());
+
+    if (!belongsToProduct || !matchesMachine) {
+      throw new InvalidActivationTokenException();
+    }
+
+    return activation;
   }
 }
