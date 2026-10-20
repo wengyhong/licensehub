@@ -1,8 +1,6 @@
-﻿using System.Net.Http.Json;
-using System.Text.Json;
+using LicenseHub.Client;
+using LicenseHub.Client.Models;
 
-var jsonOptions =
-    new JsonSerializerOptions(JsonSerializerDefaults.Web);
 var apiBaseUrl =
     Environment.GetEnvironmentVariable("LICENSEHUB_API_URL")
     ?? "http://localhost:8080";
@@ -22,6 +20,8 @@ using var httpClient = new HttpClient
     BaseAddress = new Uri(apiBaseUrl),
     Timeout = TimeSpan.FromSeconds(10)
 };
+
+var licenseHubClient = new LicenseHubClient(httpClient, productId);
 
 Console.WriteLine("LicenseHub Activation Demo");
 Console.WriteLine("1. Activate this machine");
@@ -106,7 +106,7 @@ else
     }
 }
 
-HttpResponseMessage response;
+ActivationResult? activation = null;
 
 try
 {
@@ -115,38 +115,52 @@ try
         Console.Write("Machine name: ");
         var machineName = Console.ReadLine()?.Trim();
 
-        var request = new ActivationRequest(
-            productId,
+        activation = await licenseHubClient.ActivateAsync(
             licenseKey!,
             machineFingerprint,
             machineName);
-
-        response = await httpClient.PostAsJsonAsync(
-            "/api/activations",
-            request);
     }
     else if (isValidation)
     {
-        var request = new ValidateActivationRequest(
-            productId,
+        activation = await licenseHubClient.ValidateAsync(
             activationToken!,
             machineFingerprint);
-
-        response = await httpClient.PostAsJsonAsync(
-            "/api/activations/validate",
-            request);
     }
     else
     {
-        var request = new DeactivateMachineRequest(
-            productId,
+        await licenseHubClient.DeactivateAsync(
             activationToken!,
             machineFingerprint);
-
-        response = await httpClient.PostAsJsonAsync(
-            "/api/activations/deactivate",
-            request);
     }
+}
+catch (LicenseHubApiException exception)
+{
+    Console.Error.WriteLine(
+        $"{operationName} failed: {(int)exception.StatusCode} {exception.StatusCode}");
+
+    if (!string.IsNullOrWhiteSpace(exception.Title))
+    {
+        Console.Error.WriteLine(exception.Title);
+    }
+
+    if (!string.IsNullOrWhiteSpace(exception.Detail) &&
+        !string.Equals(
+            exception.Detail,
+            exception.Title,
+            StringComparison.OrdinalIgnoreCase))
+    {
+        Console.Error.WriteLine(exception.Detail);
+    }
+
+    if (exception.Errors is not null)
+    {
+        foreach (var error in exception.Errors)
+        {
+            Console.Error.WriteLine($"{error.Key}: {error.Value}");
+        }
+    }
+
+    return;
 }
 catch (HttpRequestException)
 {
@@ -162,64 +176,9 @@ catch (TaskCanceledException)
         "The LicenseHub server did not respond within 10 seconds.");
     return;
 }
-
-using var responseLifetime = response;
-
-var responseBody = await response.Content.ReadAsStringAsync();
-
-static ApiProblem? TryDeserializeProblem(
-    string responseBody,
-    JsonSerializerOptions jsonOptions)
+catch (InvalidOperationException exception)
 {
-    try
-    {
-        return JsonSerializer.Deserialize<ApiProblem>(
-            responseBody,
-            jsonOptions);
-    }
-    catch (JsonException)
-    {
-        return null;
-    }
-}
-
-if (!response.IsSuccessStatusCode)
-{
-    var problem = TryDeserializeProblem(responseBody, jsonOptions);
-
-    Console.Error.WriteLine(
-        $"{operationName} failed: {(int)response.StatusCode} {response.StatusCode}");
-
-    if (problem is not null)
-    {
-        if (!string.IsNullOrWhiteSpace(problem.Title))
-        {
-            Console.Error.WriteLine(problem.Title);
-        }
-
-        if (!string.IsNullOrWhiteSpace(problem.Detail) &&
-            !string.Equals(
-                problem.Detail,
-                problem.Title,
-                StringComparison.OrdinalIgnoreCase))
-        {
-            Console.Error.WriteLine(problem.Detail);
-        }
-
-        if (problem.Errors is not null)
-        {
-            foreach (var error in problem.Errors)
-            {
-                Console.Error.WriteLine(
-                    $"{error.Key}: {error.Value}");
-            }
-        }
-    }
-    else
-    {
-        Console.Error.WriteLine(responseBody);
-    }
-
+    Console.Error.WriteLine($"{operationName} failed: {exception.Message}");
     return;
 }
 
@@ -245,10 +204,6 @@ if (!isActivation && !isValidation)
     Console.WriteLine("Deactivation successful");
     return;
 }
-
-var activation = JsonSerializer.Deserialize<ActivationResponse>(
-    responseBody,
-    jsonOptions);
 
 if (activation is null)
 {
@@ -354,35 +309,3 @@ static void DeleteActivationToken(Guid productId)
         File.Delete(tokenPath);
     }
 }
-
-internal sealed record ActivationRequest(
-    Guid ProductId,
-    string LicenseKey,
-    string MachineFingerprint,
-    string? MachineName);
-
-internal sealed record ValidateActivationRequest(
-    Guid ProductId,
-    string ActivationToken,
-    string MachineFingerprint);
-
-internal sealed record DeactivateMachineRequest(
-    Guid ProductId,
-    string ActivationToken,
-    string MachineFingerprint);
-
-internal sealed record ActivationResponse(
-    Guid Id,
-    Guid LicenseId,
-    string? MachineName,
-    DateTimeOffset ActivatedAt,
-    DateTimeOffset LastSeenAt,
-    string? ActivationToken);
-
-internal sealed record ApiProblem(
-    string? Type,
-    string? Title,
-    int? Status,
-    string? Detail,
-    string? Instance,
-    Dictionary<string, string>? Errors);
