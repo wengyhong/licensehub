@@ -35,3 +35,26 @@ build/
 
 **/bin/
 **/obj/
+
+### Unity ###
+/clients/LicenseHub.UnityDemo/[Ll]ibrary/
+/clients/LicenseHub.UnityDemo/[Tt]emp/
+/clients/LicenseHub.UnityDemo/[Oo]bj/
+/clients/LicenseHub.UnityDemo/[Bb]uild/
+/clients/LicenseHub.UnityDemo/[Bb]uilds/
+/clients/LicenseHub.UnityDemo/[Ll]ogs/
+/clients/LicenseHub.UnityDemo/[Uu]ser[Ss]ettings/
+/clients/LicenseHub.UnityDemo/[Mm]emoryCaptures/
+/clients/LicenseHub.UnityDemo/[Rr]ecordings/
+
+/clients/LicenseHub.UnityDemo/*.csproj
+/clients/LicenseHub.UnityDemo/*.sln
+/clients/LicenseHub.UnityDemo/*.slnx
+/clients/LicenseHub.UnityDemo/*.user
+/clients/LicenseHub.UnityDemo/*.pidb
+/clients/LicenseHub.UnityDemo/*.booproj
+/clients/LicenseHub.UnityDemo/*.svd
+/clients/LicenseHub.UnityDemo/*.pdb
+/clients/LicenseHub.UnityDemo/*.mdb
+/clients/LicenseHub.UnityDemo/*.opendb
+/clients/LicenseHub.UnityDemo/*.VC.db
