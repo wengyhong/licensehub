@@ -12,9 +12,11 @@ import static org.mockito.Mockito.when;
 
 import com.weng.licensehub.activation.domain.MachineActivation;
 import com.weng.licensehub.activation.persistence.MachineActivationRepository;
+import com.weng.licensehub.license.application.InvalidLicenseKeyException;
 import com.weng.licensehub.license.application.LicenseKeyVerifier;
 import com.weng.licensehub.license.domain.License;
 import com.weng.licensehub.license.persistence.LicenseRepository;
+import com.weng.licensehub.product.domain.Product;
 import com.weng.licensehub.shared.security.Sha256Hasher;
 import java.time.Clock;
 import java.time.Instant;
@@ -32,6 +34,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class ActivationServiceTest {
 
   private static final Instant NOW = Instant.parse("2026-09-28T10:00:00Z");
+  private static final UUID PRODUCT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
   @Mock private LicenseRepository licenseRepository;
   @Mock private LicenseKeyVerifier licenseKeyVerifier;
 
@@ -57,7 +60,7 @@ class ActivationServiceTest {
     String fingerprintHash = "f".repeat(64);
     UUID licenseId = UUID.randomUUID();
 
-    License license = mock(License.class);
+    License license = licenseForProduct(PRODUCT_ID);
 
     when(license.getId()).thenReturn(licenseId);
 
@@ -83,7 +86,7 @@ class ActivationServiceTest {
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     MachineActivation result =
-        activationService.activate(fullKey, rawFingerprint, "Development laptop");
+        activationService.activate(PRODUCT_ID, fullKey, rawFingerprint, "Development laptop");
 
     ArgumentCaptor<MachineActivation> captor = ArgumentCaptor.forClass(MachineActivation.class);
 
@@ -108,7 +111,7 @@ class ActivationServiceTest {
     String fingerprintHash = "f".repeat(64);
     UUID licenseId = UUID.randomUUID();
 
-    License license = mock(License.class);
+    License license = licenseForProduct(PRODUCT_ID);
     when(license.getId()).thenReturn(licenseId);
 
     when(licenseRepository.findByIdForUpdate(licenseId)).thenReturn(Optional.of(license));
@@ -127,7 +130,7 @@ class ActivationServiceTest {
         .thenReturn(Optional.of(existingActivation));
 
     MachineActivation result =
-        activationService.activate(fullKey, rawFingerprint, "Development laptop");
+        activationService.activate(PRODUCT_ID, fullKey, rawFingerprint, "Development laptop");
 
     assertThat(result).isSameAs(existingActivation);
 
@@ -141,7 +144,7 @@ class ActivationServiceTest {
   @Test
   void rejectsInactiveOrExpiredLicenseBeforeHashingFingerprint() {
     String fullKey = "full-license-key";
-    License license = mock(License.class);
+    License license = licenseForProduct(PRODUCT_ID);
     UUID licenseId = UUID.randomUUID();
     when(license.getId()).thenReturn(licenseId);
 
@@ -153,7 +156,7 @@ class ActivationServiceTest {
     assertThatThrownBy(
             () ->
                 activationService.activate(
-                    fullKey, "raw-machine-fingerprint", "Development laptop"))
+                    PRODUCT_ID, fullKey, "raw-machine-fingerprint", "Development laptop"))
         .isInstanceOf(LicenseNotActivatableException.class)
         .hasMessage("License is inactive or expired");
 
@@ -167,7 +170,7 @@ class ActivationServiceTest {
     String fingerprintHash = "f".repeat(64);
     UUID licenseId = UUID.randomUUID();
 
-    License license = mock(License.class);
+    License license = licenseForProduct(PRODUCT_ID);
     when(license.getId()).thenReturn(licenseId);
 
     when(licenseRepository.findByIdForUpdate(licenseId)).thenReturn(Optional.of(license));
@@ -188,7 +191,9 @@ class ActivationServiceTest {
     when(activationRepository.countByLicense_IdAndDeactivatedAtIsNull(licenseId)).thenReturn(2L);
 
     assertThatThrownBy(
-            () -> activationService.activate(fullKey, rawFingerprint, "Development laptop"))
+            () ->
+                activationService.activate(
+                    PRODUCT_ID, fullKey, rawFingerprint, "Development laptop"))
         .isInstanceOf(ActivationLimitExceededException.class)
         .hasMessage("Maximum number of activations reached");
 
@@ -202,7 +207,7 @@ class ActivationServiceTest {
     String fingerprintHash = "f".repeat(64);
     UUID licenseId = UUID.randomUUID();
 
-    License license = mock(License.class);
+    License license = licenseForProduct(PRODUCT_ID);
 
     MachineActivation activation = mock(MachineActivation.class);
 
@@ -218,7 +223,7 @@ class ActivationServiceTest {
             licenseId, fingerprintHash))
         .thenReturn(Optional.of(activation));
 
-    activationService.deactivate(fullKey, rawFingerprint);
+    activationService.deactivate(PRODUCT_ID, fullKey, rawFingerprint);
 
     verify(activation).deactivate(NOW);
 
@@ -234,7 +239,7 @@ class ActivationServiceTest {
     String fingerprintHash = "f".repeat(64);
     UUID licenseId = UUID.randomUUID();
 
-    License license = mock(License.class);
+    License license = licenseForProduct(PRODUCT_ID);
 
     when(licenseKeyVerifier.verify(fullKey)).thenReturn(license);
 
@@ -248,7 +253,7 @@ class ActivationServiceTest {
             licenseId, fingerprintHash))
         .thenReturn(Optional.empty());
 
-    assertThatCode(() -> activationService.deactivate(fullKey, rawFingerprint))
+    assertThatCode(() -> activationService.deactivate(PRODUCT_ID, fullKey, rawFingerprint))
         .doesNotThrowAnyException();
 
     verify(license, never()).canActivateAt(any(Instant.class));
@@ -265,7 +270,7 @@ class ActivationServiceTest {
     String fingerprintHash = "f".repeat(64);
     UUID licenseId = UUID.randomUUID();
 
-    License license = mock(License.class);
+    License license = licenseForProduct(PRODUCT_ID);
     MachineActivation activation = mock(MachineActivation.class);
 
     when(licenseKeyVerifier.verify(fullKey)).thenReturn(license);
@@ -280,7 +285,7 @@ class ActivationServiceTest {
             licenseId, fingerprintHash))
         .thenReturn(Optional.of(activation));
 
-    MachineActivation result = activationService.validate(fullKey, rawFingerprint);
+    MachineActivation result = activationService.validate(PRODUCT_ID, fullKey, rawFingerprint);
 
     assertThat(result).isSameAs(activation);
 
@@ -293,13 +298,14 @@ class ActivationServiceTest {
   @Test
   void validateRejectsInactiveOrExpiredLicenseBeforeHashingFingerprint() {
     String fullKey = "full-license-key";
-    License license = mock(License.class);
+    License license = licenseForProduct(PRODUCT_ID);
 
     when(licenseKeyVerifier.verify(fullKey)).thenReturn(license);
 
     when(license.canActivateAt(NOW)).thenReturn(false);
 
-    assertThatThrownBy(() -> activationService.validate(fullKey, "raw-machine-fingerprint"))
+    assertThatThrownBy(
+            () -> activationService.validate(PRODUCT_ID, fullKey, "raw-machine-fingerprint"))
         .isInstanceOf(LicenseNotActivatableException.class)
         .hasMessage("License is inactive or expired");
 
@@ -313,7 +319,7 @@ class ActivationServiceTest {
     String fingerprintHash = "f".repeat(64);
     UUID licenseId = UUID.randomUUID();
 
-    License license = mock(License.class);
+    License license = licenseForProduct(PRODUCT_ID);
 
     when(licenseKeyVerifier.verify(fullKey)).thenReturn(license);
 
@@ -327,8 +333,71 @@ class ActivationServiceTest {
             licenseId, fingerprintHash))
         .thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> activationService.validate(fullKey, rawFingerprint))
+    assertThatThrownBy(() -> activationService.validate(PRODUCT_ID, fullKey, rawFingerprint))
         .isInstanceOf(MachineNotActivatedException.class)
         .hasMessage("Machine is not activated for this license");
+  }
+
+  @Test
+  void rejectsLicenseBelongingToAnotherProductBeforeHashingFingerprint() {
+    String fullKey = "full-license-key";
+    UUID licenseId = UUID.randomUUID();
+    License license = licenseForProduct(UUID.randomUUID());
+
+    when(license.getId()).thenReturn(licenseId);
+    when(licenseKeyVerifier.verify(fullKey)).thenReturn(license);
+    when(licenseRepository.findByIdForUpdate(licenseId)).thenReturn(Optional.of(license));
+
+    assertThatThrownBy(
+            () ->
+                activationService.activate(
+                    PRODUCT_ID, fullKey, "raw-machine-fingerprint", "Development laptop"))
+        .isInstanceOf(InvalidLicenseKeyException.class)
+        .hasMessage("Invalid license key");
+
+    verifyNoInteractions(sha256Hasher, activationRepository);
+  }
+
+  @Test
+  void deactivateRejectsLicenseBelongingToAnotherProductBeforeHashingFingerprint() {
+    String fullKey = "full-license-key";
+    UUID licenseId = UUID.randomUUID();
+    License license = licenseForProduct(UUID.randomUUID());
+
+    when(license.getId()).thenReturn(licenseId);
+    when(licenseKeyVerifier.verify(fullKey)).thenReturn(license);
+    when(licenseRepository.findByIdForUpdate(licenseId)).thenReturn(Optional.of(license));
+
+    assertThatThrownBy(
+            () -> activationService.deactivate(PRODUCT_ID, fullKey, "raw-machine-fingerprint"))
+        .isInstanceOf(InvalidLicenseKeyException.class)
+        .hasMessage("Invalid license key");
+
+    verifyNoInteractions(sha256Hasher, activationRepository);
+  }
+
+  @Test
+  void validateRejectsLicenseBelongingToAnotherProductBeforeHashingFingerprint() {
+    String fullKey = "full-license-key";
+    License license = licenseForProduct(UUID.randomUUID());
+
+    when(licenseKeyVerifier.verify(fullKey)).thenReturn(license);
+
+    assertThatThrownBy(
+            () -> activationService.validate(PRODUCT_ID, fullKey, "raw-machine-fingerprint"))
+        .isInstanceOf(InvalidLicenseKeyException.class)
+        .hasMessage("Invalid license key");
+
+    verifyNoInteractions(sha256Hasher, activationRepository, licenseRepository);
+  }
+
+  private License licenseForProduct(UUID productId) {
+    Product product = mock(Product.class);
+    License license = mock(License.class);
+
+    when(product.getId()).thenReturn(productId);
+    when(license.getProduct()).thenReturn(product);
+
+    return license;
   }
 }

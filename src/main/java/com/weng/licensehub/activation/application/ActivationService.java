@@ -2,6 +2,7 @@ package com.weng.licensehub.activation.application;
 
 import com.weng.licensehub.activation.domain.MachineActivation;
 import com.weng.licensehub.activation.persistence.MachineActivationRepository;
+import com.weng.licensehub.license.application.InvalidLicenseKeyException;
 import com.weng.licensehub.license.application.LicenseKeyVerifier;
 import com.weng.licensehub.license.domain.License;
 import com.weng.licensehub.license.persistence.LicenseRepository;
@@ -9,6 +10,7 @@ import com.weng.licensehub.shared.security.Sha256Hasher;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,13 +38,15 @@ public class ActivationService {
 
   @Transactional
   public MachineActivation activate(
-      String fullLicenseKey, String machineFingerprint, String machineName) {
+      UUID productId, String fullLicenseKey, String machineFingerprint, String machineName) {
     License verifiedLicense = licenseKeyVerifier.verify(fullLicenseKey);
 
     License license =
         licenseRepository
             .findByIdForUpdate(verifiedLicense.getId())
             .orElseThrow(() -> new LicenseNotActivatableException());
+
+    requireProduct(license, productId);
 
     Instant now = clock.instant();
 
@@ -76,13 +80,15 @@ public class ActivationService {
   }
 
   @Transactional
-  public void deactivate(String licenseKey, String machineFingerprint) {
+  public void deactivate(UUID productId, String licenseKey, String machineFingerprint) {
     License verifiedLicense = licenseKeyVerifier.verify(licenseKey);
 
     License license =
         licenseRepository
             .findByIdForUpdate(verifiedLicense.getId())
             .orElseThrow(LicenseNotActivatableException::new);
+
+    requireProduct(license, productId);
 
     String fingerprintHash = sha256Hasher.hash(machineFingerprint);
 
@@ -93,9 +99,11 @@ public class ActivationService {
   }
 
   @Transactional
-  public MachineActivation validate(String licenseKey, String machineFingerprint) {
+  public MachineActivation validate(UUID productId, String licenseKey, String machineFingerprint) {
     License verifiedLicense = licenseKeyVerifier.verify(licenseKey);
     Instant now = clock.instant();
+
+    requireProduct(verifiedLicense, productId);
 
     if (!verifiedLicense.canActivateAt(now)) {
       throw new LicenseNotActivatableException();
@@ -112,5 +120,11 @@ public class ActivationService {
     machineActivation.markSeen(clock.instant());
 
     return machineActivation;
+  }
+
+  private void requireProduct(License license, UUID productId) {
+    if (!productId.equals(license.getProduct().getId())) {
+      throw new InvalidLicenseKeyException();
+    }
   }
 }

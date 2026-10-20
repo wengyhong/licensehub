@@ -26,7 +26,10 @@ public class ActivationController {
 
     MachineActivation activation =
         activationService.activate(
-            request.licenseKey(), request.machineFingerprint(), request.machineName());
+            request.productId(),
+            request.licenseKey(),
+            request.machineFingerprint(),
+            request.machineName());
 
     return (toResponse(activation));
   }
@@ -44,13 +47,15 @@ public class ActivationController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void deactivate(@Valid @RequestBody DeactivateMachineRequest request) {
 
-    activationService.deactivate(request.licenseKey(), request.machineFingerprint());
+    activationService.deactivate(
+        request.productId(), request.licenseKey(), request.machineFingerprint());
   }
 
   @PostMapping("/activations/validate")
   public ActivationResponse validate(@Valid @RequestBody ValidateActivationRequest request) {
     MachineActivation activation =
-        activationService.validate(request.licenseKey(), request.machineFingerprint());
+        activationService.validate(
+            request.productId(), request.licenseKey(), request.machineFingerprint());
 
     return toResponse(activation);
   }

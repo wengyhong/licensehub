@@ -32,6 +32,8 @@ import org.springframework.test.web.servlet.ResultActions;
 @AutoConfigureMockMvc(addFilters = false)
 class ActivationControllerTest {
 
+  private static final UUID PRODUCT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
+
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private ActivationService activationService;
@@ -62,7 +64,7 @@ class ActivationControllerTest {
     when(activation.getLastSeenAt()).thenReturn(lastSeenAt);
 
     when(activationService.activate(
-            "full-license-key", "raw-machine-fingerprint", "Development laptop"))
+            PRODUCT_ID, "full-license-key", "raw-machine-fingerprint", "Development laptop"))
         .thenReturn(activation);
 
     mockMvc
@@ -72,6 +74,7 @@ class ActivationControllerTest {
                 .content(
                     """
                                                 {
+                                                  "productId": "11111111-1111-1111-1111-111111111111",
                                                   "licenseKey": "full-license-key",
                                                   "machineFingerprint": "raw-machine-fingerprint",
                                                   "machineName": "Development laptop"
@@ -88,7 +91,7 @@ class ActivationControllerTest {
         .andExpect(jsonPath("$.machineFingerprintHash").doesNotExist());
 
     verify(activationService)
-        .activate("full-license-key", "raw-machine-fingerprint", "Development laptop");
+        .activate(PRODUCT_ID, "full-license-key", "raw-machine-fingerprint", "Development laptop");
   }
 
   @Test
@@ -112,6 +115,7 @@ class ActivationControllerTest {
         .andExpect(jsonPath("$.title").value("Validation failed"))
         .andExpect(jsonPath("$.status").value(400))
         .andExpect(jsonPath("$.detail").value("One or more fields are invalid"))
+        .andExpect(jsonPath("$.errors.productId").exists())
         .andExpect(jsonPath("$.errors.licenseKey").exists())
         .andExpect(jsonPath("$.errors.machineFingerprint").exists());
 
@@ -122,7 +126,7 @@ class ActivationControllerTest {
   void activateReturns401ForInvalidLicenseKey() throws Exception {
 
     when(activationService.activate(
-            "full-license-key", "raw-machine-fingerprint", "Development laptop"))
+            PRODUCT_ID, "full-license-key", "raw-machine-fingerprint", "Development laptop"))
         .thenThrow(new InvalidLicenseKeyException());
 
     performValidActivationRequest()
@@ -136,7 +140,7 @@ class ActivationControllerTest {
   void activateReturns403ForInactiveOrExpiredLicense() throws Exception {
 
     when(activationService.activate(
-            "full-license-key", "raw-machine-fingerprint", "Development laptop"))
+            PRODUCT_ID, "full-license-key", "raw-machine-fingerprint", "Development laptop"))
         .thenThrow(new LicenseNotActivatableException());
 
     performValidActivationRequest()
@@ -150,7 +154,7 @@ class ActivationControllerTest {
   void activateReturns409WhenActivationLimitIsReached() throws Exception {
 
     when(activationService.activate(
-            "full-license-key", "raw-machine-fingerprint", "Development laptop"))
+            PRODUCT_ID, "full-license-key", "raw-machine-fingerprint", "Development laptop"))
         .thenThrow(new ActivationLimitExceededException());
 
     performValidActivationRequest()
@@ -168,6 +172,7 @@ class ActivationControllerTest {
             .content(
                 """
                                                 {
+                                              "productId": "11111111-1111-1111-1111-111111111111",
                                                   "licenseKey": "full-license-key",
                                                   "machineFingerprint": "raw-machine-fingerprint",
                                                   "machineName": "Development laptop"
@@ -184,6 +189,7 @@ class ActivationControllerTest {
                 .content(
                     """
                                                 {
+                                                  "productId": "11111111-1111-1111-1111-111111111111",
                                                   "licenseKey": "full-license-key",
                                                   "machineFingerprint": "raw-machine-fingerprint"
                                                 }
@@ -191,7 +197,7 @@ class ActivationControllerTest {
         .andExpect(status().isNoContent())
         .andExpect(content().string(""));
 
-    verify(activationService).deactivate("full-license-key", "raw-machine-fingerprint");
+    verify(activationService).deactivate(PRODUCT_ID, "full-license-key", "raw-machine-fingerprint");
   }
 
   @Test
@@ -199,7 +205,7 @@ class ActivationControllerTest {
 
     doThrow(new InvalidLicenseKeyException())
         .when(activationService)
-        .deactivate("full-license-key", "raw-machine-fingerprint");
+        .deactivate(PRODUCT_ID, "full-license-key", "raw-machine-fingerprint");
 
     mockMvc
         .perform(
@@ -208,6 +214,7 @@ class ActivationControllerTest {
                 .content(
                     """
                                                 {
+                                                  "productId": "11111111-1111-1111-1111-111111111111",
                                                   "licenseKey": "full-license-key",
                                                   "machineFingerprint": "raw-machine-fingerprint"
                                                 }
@@ -234,7 +241,7 @@ class ActivationControllerTest {
     when(activation.getActivatedAt()).thenReturn(Instant.parse("2026-10-01T10:00:00Z"));
     when(activation.getLastSeenAt()).thenReturn(lastSeenAt);
 
-    when(activationService.validate("full-license-key", "raw-machine-fingerprint"))
+    when(activationService.validate(PRODUCT_ID, "full-license-key", "raw-machine-fingerprint"))
         .thenReturn(activation);
 
     mockMvc
@@ -244,6 +251,7 @@ class ActivationControllerTest {
                 .content(
                     """
                                                 {
+                                                  "productId": "11111111-1111-1111-1111-111111111111",
                                                   "licenseKey": "full-license-key",
                                                   "machineFingerprint": "raw-machine-fingerprint"
                                                 }
@@ -256,13 +264,13 @@ class ActivationControllerTest {
         .andExpect(jsonPath("$.machineFingerprint").doesNotExist())
         .andExpect(jsonPath("$.machineFingerprintHash").doesNotExist());
 
-    verify(activationService).validate("full-license-key", "raw-machine-fingerprint");
+    verify(activationService).validate(PRODUCT_ID, "full-license-key", "raw-machine-fingerprint");
   }
 
   @Test
   void validateReturns403WhenMachineIsNotActivated() throws Exception {
 
-    when(activationService.validate("full-license-key", "raw-machine-fingerprint"))
+    when(activationService.validate(PRODUCT_ID, "full-license-key", "raw-machine-fingerprint"))
         .thenThrow(new MachineNotActivatedException());
 
     mockMvc
@@ -272,6 +280,7 @@ class ActivationControllerTest {
                 .content(
                     """
                                                 {
+                                                  "productId": "11111111-1111-1111-1111-111111111111",
                                                   "licenseKey": "full-license-key",
                                                   "machineFingerprint": "raw-machine-fingerprint"
                                                 }
@@ -298,6 +307,7 @@ class ActivationControllerTest {
                                                 """))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.title").value("Validation failed"))
+        .andExpect(jsonPath("$.errors.productId").exists())
         .andExpect(jsonPath("$.errors.licenseKey").exists())
         .andExpect(jsonPath("$.errors.machineFingerprint").exists());
 

@@ -47,17 +47,17 @@ class ActivationFlowIntegrationTest {
     IssuedLicenseDetails issued = issueLicense(productId);
     String licenseKey = issued.licenseKey();
     String firstActivationId =
-        activateMachine(licenseKey, "integration-machine-001", "Integration laptop");
+        activateMachine(productId, licenseKey, "integration-machine-001", "Integration laptop");
 
     String repeatedActivationId =
-        activateMachine(licenseKey, "integration-machine-001", "Integration laptop");
+        activateMachine(productId, licenseKey, "integration-machine-001", "Integration laptop");
 
     assertThat(repeatedActivationId).isEqualTo(firstActivationId);
 
-    deactivateMachine(licenseKey, "integration-machine-001");
+    deactivateMachine(productId, licenseKey, "integration-machine-001");
 
     String reactivatedId =
-        activateMachine(licenseKey, "integration-machine-001", "Integration laptop");
+        activateMachine(productId, licenseKey, "integration-machine-001", "Integration laptop");
 
     assertThat(reactivatedId).isNotEqualTo(firstActivationId);
 
@@ -71,9 +71,14 @@ class ActivationFlowIntegrationTest {
     String requestBody =
         objectMapper.writeValueAsString(
             Map.of(
-                "licenseKey", licenseKey,
-                "machineFingerprint", "blocked-machine",
-                "machineName", "Blocked laptop"));
+                "productId",
+                productId,
+                "licenseKey",
+                licenseKey,
+                "machineFingerprint",
+                "blocked-machine",
+                "machineName",
+                "Blocked laptop"));
 
     mockMvc
         .perform(
@@ -135,12 +140,15 @@ class ActivationFlowIntegrationTest {
         response.get("license").get("id").asText(), response.get("licenseKey").asText());
   }
 
-  private String activateMachine(String licenseKey, String fingerprint, String machineName)
+  private String activateMachine(
+      String productId, String licenseKey, String fingerprint, String machineName)
       throws Exception {
 
     String requestBody =
         objectMapper.writeValueAsString(
             Map.of(
+                "productId",
+                productId,
                 "licenseKey",
                 licenseKey,
                 "machineFingerprint",
@@ -166,11 +174,18 @@ class ActivationFlowIntegrationTest {
     return activationId;
   }
 
-  private void deactivateMachine(String licenseKey, String fingerprint) throws Exception {
+  private void deactivateMachine(String productId, String licenseKey, String fingerprint)
+      throws Exception {
 
     String requestBody =
         objectMapper.writeValueAsString(
-            Map.of("licenseKey", licenseKey, "machineFingerprint", fingerprint));
+            Map.of(
+                "productId",
+                productId,
+                "licenseKey",
+                licenseKey,
+                "machineFingerprint",
+                fingerprint));
 
     mockMvc
         .perform(

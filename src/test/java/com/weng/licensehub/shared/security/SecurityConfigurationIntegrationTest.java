@@ -214,6 +214,7 @@ class SecurityConfigurationIntegrationTest {
                 .content(
                     """
                                                 {
+                                                  "productId": "11111111-1111-1111-1111-111111111111",
                                                   "licenseKey": "not-a-valid-license-key",
                                                   "machineFingerprint": "test-machine"
                                                 }
