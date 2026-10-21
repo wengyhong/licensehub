@@ -313,7 +313,31 @@ Editor-only test commands are available under **Tools > LicenseHub > Testing**:
 - **Simulate Machine Reformat** removes the token and assigns a temporary Editor fingerprint.
 - **Restore Real Machine Identity** removes the simulated fingerprint.
 
-For a Windows standalone build, open **File > Build Profiles**, select Windows with the Intel 64-bit architecture, add `Assets/Scenes/SampleScene.unity`, and choose **Build and Run**. Build output belongs under `clients/LicenseHub.UnityDemo/Builds`, which is ignored by Git.
+#### Build and distribute the Windows demo
+
+Prebuilt Windows packages are published on the [GitHub Releases page](https://github.com/wengyhong/licensehub/releases). The player is an integration demo rather than a standalone service: the configured LicenseHub backend must be reachable, and its configured product ID must exist in that backend.
+
+Before producing a public build, select the `LicenseHub` object in `SampleScene` and configure `LicenseHubManager` with the intended API base URL and product ID. A product ID is safe to distribute, but never embed a license key in the client.
+
+To create the Windows build with Unity 6:
+
+1. Open **File > Build Profiles**.
+2. Add or select the **Windows** profile and switch to it.
+3. Select the **Intel 64-bit** architecture.
+4. Add `Assets/Scenes/SampleScene.unity` to the scene list.
+5. Leave **Development Build** disabled and select **Build**.
+6. Save the output as `Builds/Windows/LicenseHub.UnityDemo.exe`.
+
+Unity generates the executable together with a data directory and supporting libraries. Zip and distribute the entire `Windows` directory, not the executable by itself:
+
+```powershell
+Compress-Archive `
+  -Path ".\Builds\Windows\*" `
+  -DestinationPath ".\Builds\LicenseHub.UnityDemo-Windows-x64-v0.4.0.zip" `
+  -Force
+```
+
+Extract the archive into a separate directory and run the extracted executable before attaching the ZIP to the matching GitHub Release. The `Builds` directory is ignored by Git, so generated players do not become part of the source repository.
 
 ## Running with Docker Compose
 
