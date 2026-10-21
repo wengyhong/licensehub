@@ -1,18 +1,22 @@
 using System;
 using System.Net.Http;
 using System.Text;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using LicenseHub.Client.Internal;
 using LicenseHub.Client.Models;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 
 namespace LicenseHub.Client
 {
     public sealed class LicenseHubClient
     {
-        private static readonly JsonSerializerOptions JsonOptions =
-            new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        private static readonly JsonSerializerSettings JsonSettings =
+            new JsonSerializerSettings
+            {
+                ContractResolver = new CamelCasePropertyNamesContractResolver()
+            };
 
         private readonly HttpClient httpClient;
         private readonly Guid productId;
@@ -124,7 +128,7 @@ namespace LicenseHub.Client
                 try
                 {
                     var result =
-                        JsonSerializer.Deserialize<ActivationResult>(responseBody, JsonOptions);
+                        JsonConvert.DeserializeObject<ActivationResult>(responseBody, JsonSettings);
 
                     if (result == null)
                     {
@@ -148,7 +152,7 @@ namespace LicenseHub.Client
             TRequest request,
             CancellationToken cancellationToken)
         {
-            string json = JsonSerializer.Serialize(request, JsonOptions);
+            string json = JsonConvert.SerializeObject(request, JsonSettings);
 
             using (var content = new StringContent(json, Encoding.UTF8, "application/json"))
             {
@@ -175,7 +179,7 @@ namespace LicenseHub.Client
 
             try
             {
-                problem = JsonSerializer.Deserialize<ApiProblem>(responseBody, JsonOptions);
+                problem = JsonConvert.DeserializeObject<ApiProblem>(responseBody, JsonSettings);
             }
             catch (JsonException)
             {

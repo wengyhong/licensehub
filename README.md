@@ -24,6 +24,7 @@ LicenseHub is a full-stack SaaS application for issuing software licenses and ma
 - Unit, MVC slice, repository, and Testcontainers integration tests
 - Responsive Next.js management dashboard
 - Reusable .NET activation client and interactive console demo
+- Unity activation demo with startup validation and a protected-content gate
 - Frontend component tests and a full-stack Playwright browser journey
 - Docker Compose and separate backend and frontend GitHub Actions pipelines
 
@@ -52,6 +53,7 @@ LicenseHub is a full-stack SaaS application for issuing software licenses and ma
 - Next.js 16, React 19, TypeScript, and Tailwind CSS
 - Vitest, Testing Library, and Playwright
 - .NET 10, C#, a `netstandard2.1` client library, and xUnit
+- Unity 6 with TextMesh Pro and the Input System
 
 ## Architecture
 
@@ -80,7 +82,8 @@ frontend/src
 clients
 |-- LicenseHub.Client         Reusable activation API client (`netstandard2.1`)
 |-- LicenseHub.Client.Tests   HTTP-boundary tests for the client
-`-- LicenseHub.ActivationDemo Interactive .NET console application
+|-- LicenseHub.ActivationDemo Interactive .NET console application
+`-- LicenseHub.UnityDemo      Unity activation and protected-content demo
 ```
 
 The main responsibilities are:
@@ -297,6 +300,20 @@ dotnet run --project clients/LicenseHub.ActivationDemo
 ```
 
 The demo supports activation, validation, and deactivation. Activation asks for the license key once and saves the returned activation token for later operations. The demo stores its generated machine ID and product-specific activation token under `%LOCALAPPDATA%\LicenseHub\ActivationDemo`.
+
+### Run the Unity activation demo
+
+Open `clients/LicenseHub.UnityDemo` with Unity 6. The sample scene contains a `LicenseHubManager`; set its API base URL to the running backend and its product ID to the product created through the LicenseHub dashboard.
+
+Enter Play Mode and provide a license key when prompted. After activation, Unity saves the product-specific activation token in `PlayerPrefs`. Future launches validate that token and machine fingerprint before revealing the protected demo content. An always-visible **Close application** button exits a standalone player or stops Play Mode in the Editor. Invalid, deactivated, revoked, or expired activations return to the activation form. Temporary network failures keep the content locked without deleting the saved token and offer a retry action.
+
+Editor-only test commands are available under **Tools > LicenseHub > Testing**:
+
+- **Simulate Lost Activation Token** removes the token without changing the fingerprint.
+- **Simulate Machine Reformat** removes the token and assigns a temporary Editor fingerprint.
+- **Restore Real Machine Identity** removes the simulated fingerprint.
+
+For a Windows standalone build, open **File > Build Profiles**, select Windows with the Intel 64-bit architecture, add `Assets/Scenes/SampleScene.unity`, and choose **Build and Run**. Build output belongs under `clients/LicenseHub.UnityDemo/Builds`, which is ignored by Git.
 
 ## Running with Docker Compose
 
