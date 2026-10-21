@@ -14,7 +14,7 @@ namespace LicenseHub.UnityDemo.Editor
     public static class LicenseHubDemoSceneSetup
     {
         private const string SetupSessionKey =
-            "LicenseHub.UnityDemo.ActivationUiSetup.v3";
+            "LicenseHub.UnityDemo.ActivationUiSetup.v4";
 
         static LicenseHubDemoSceneSetup()
         {
@@ -98,6 +98,7 @@ namespace LicenseHub.UnityDemo.Editor
                 "Machine name");
 
             Button activateButton = CreateButton(
+                "ActivateButton",
                 panelObject.transform,
                 font,
                 "Activate");
@@ -187,6 +188,10 @@ namespace LicenseHub.UnityDemo.Editor
                     "The licensed content does not contain its status text.");
                 return;
             }
+
+            EnsureCloseApplicationButton(
+                licensedContentRoot.transform,
+                font);
 
             licensedContentRoot.SetActive(false);
 
@@ -365,8 +370,51 @@ namespace LicenseHub.UnityDemo.Editor
                 100);
             statusText.color = new Color32(148, 163, 184, 255);
 
+            EnsureCloseApplicationButton(content.transform, font);
+
             content.SetActive(false);
             return content;
+        }
+
+        private static void EnsureCloseApplicationButton(
+            Transform parent,
+            TMP_FontAsset font)
+        {
+            VerticalLayoutGroup parentLayout =
+                parent.GetComponent<VerticalLayoutGroup>();
+
+            if (parentLayout != null)
+            {
+                parentLayout.childForceExpandWidth = false;
+            }
+
+            Transform existingButton =
+                parent.Find("CloseApplicationButton");
+
+            if (existingButton != null)
+            {
+                if (existingButton.GetComponent<QuitApplicationButton>() == null)
+                {
+                    existingButton.gameObject.AddComponent<QuitApplicationButton>();
+                }
+
+                return;
+            }
+
+            Button closeButton = CreateButton(
+                "CloseApplicationButton",
+                parent,
+                font,
+                "Close application");
+
+            closeButton.GetComponent<Image>().color =
+                new Color32(220, 38, 38, 255);
+
+            LayoutElement layout =
+                closeButton.GetComponent<LayoutElement>();
+            layout.preferredWidth = 320;
+
+            closeButton.gameObject.AddComponent<QuitApplicationButton>();
         }
 
         private static TMP_InputField CreateInput(
@@ -435,11 +483,12 @@ namespace LicenseHub.UnityDemo.Editor
         }
 
         private static Button CreateButton(
+            string name,
             Transform parent,
             TMP_FontAsset font,
             string label)
         {
-            GameObject buttonObject = CreateUiObject("ActivateButton", parent);
+            GameObject buttonObject = CreateUiObject(name, parent);
             Image image = buttonObject.AddComponent<Image>();
             image.color = new Color32(37, 99, 235, 255);
 

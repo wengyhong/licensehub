@@ -305,7 +305,7 @@ The demo supports activation, validation, and deactivation. Activation asks for 
 
 Open `clients/LicenseHub.UnityDemo` with Unity 6. The sample scene contains a `LicenseHubManager`; set its API base URL to the running backend and its product ID to the product created through the LicenseHub dashboard.
 
-Enter Play Mode and provide a license key when prompted. After activation, Unity saves the product-specific activation token in `PlayerPrefs`. Future launches validate that token and machine fingerprint before revealing the protected demo content. Invalid, deactivated, revoked, or expired activations return to the activation form. Temporary network failures keep the content locked without deleting the saved token and offer a retry action.
+Enter Play Mode and provide a license key when prompted. After activation, Unity saves the product-specific activation token in `PlayerPrefs`. Future launches validate that token and machine fingerprint before revealing the protected demo content. The unlocked screen includes a button that exits a standalone player or stops Play Mode in the Editor. Invalid, deactivated, revoked, or expired activations return to the activation form. Temporary network failures keep the content locked without deleting the saved token and offer a retry action.
 
 Editor-only test commands are available under **Tools > LicenseHub > Testing**:
 
