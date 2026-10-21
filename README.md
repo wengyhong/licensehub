@@ -303,7 +303,7 @@ The demo supports activation, validation, and deactivation. Activation asks for 
 
 ### Run the Unity activation demo
 
-Open `clients/LicenseHub.UnityDemo` with Unity 6. The sample scene contains a `LicenseHubManager`; set its API base URL to the running backend and its product ID to the product created through the LicenseHub dashboard.
+Open `clients/LicenseHub.UnityDemo` with Unity 6. For Editor development, the sample scene's `LicenseHubManager` contains API base URL and product ID fields. You can instead copy `licensehub-config.example.json` to `licensehub-config.json` in the Unity project root and enter the running backend URL and a product ID created through the LicenseHub dashboard. The ignored JSON file overrides the Inspector values.
 
 Enter Play Mode and provide a license key when prompted. After activation, Unity saves the product-specific activation token in `PlayerPrefs`. Future launches validate that token and machine fingerprint before revealing the protected demo content. An always-visible **Close application** button exits a standalone player or stops Play Mode in the Editor. Invalid, deactivated, revoked, or expired activations return to the activation form. Temporary network failures keep the content locked without deleting the saved token and offer a retry action.
 
@@ -315,9 +315,9 @@ Editor-only test commands are available under **Tools > LicenseHub > Testing**:
 
 #### Build and distribute the Windows demo
 
-Prebuilt Windows packages are published on the [GitHub Releases page](https://github.com/wengyhong/licensehub/releases). The player is an integration demo rather than a standalone service: the configured LicenseHub backend must be reachable, and its configured product ID must exist in that backend.
+Prebuilt Windows packages are published on the [GitHub Releases page](https://github.com/wengyhong/licensehub/releases). The player is an integration demo rather than a standalone service: the configured LicenseHub backend must be reachable, and its configured product ID must exist in that backend. Edit `licensehub-config.json` beside the downloaded executable before launching it.
 
-Before producing a public build, select the `LicenseHub` object in `SampleScene` and configure `LicenseHubManager` with the intended API base URL and product ID. A product ID is safe to distribute, but never embed a license key in the client.
+A product ID is safe to distribute, but never put a license key in the configuration file or embed one in the client.
 
 To create the Windows build with Unity 6:
 
@@ -327,13 +327,18 @@ To create the Windows build with Unity 6:
 4. Add `Assets/Scenes/SampleScene.unity` to the scene list.
 5. Leave **Development Build** disabled and select **Build**.
 6. Save the output as `Builds/Windows/LicenseHub.UnityDemo.exe`.
+7. Copy `licensehub-config.example.json` into `Builds/Windows` as `licensehub-config.json`, then replace its product ID placeholder.
 
 Unity generates the executable together with a data directory and supporting libraries. Zip and distribute the entire `Windows` directory, not the executable by itself:
 
 ```powershell
+Copy-Item `
+  ".\licensehub-config.example.json" `
+  ".\Builds\Windows\licensehub-config.json"
+
 Compress-Archive `
   -Path ".\Builds\Windows\*" `
-  -DestinationPath ".\Builds\LicenseHub.UnityDemo-Windows-x64-v0.4.0.zip" `
+  -DestinationPath ".\Builds\LicenseHub.UnityDemo-Windows-x64-v0.4.1.zip" `
   -Force
 ```
 
