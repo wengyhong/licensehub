@@ -28,6 +28,57 @@ LicenseHub is a full-stack SaaS application for issuing software licenses and ma
 - Frontend component tests and a full-stack Playwright browser journey
 - Docker Compose and separate backend and frontend GitHub Actions pipelines
 
+## User Journey
+
+LicenseHub connects two distinct users: a software vendor manages products and licenses through the authenticated dashboard, while a customer activates the vendor's application with a license key. The customer does not need a LicenseHub account.
+
+```mermaid
+sequenceDiagram
+    actor Vendor as Software vendor
+    participant Dashboard as LicenseHub dashboard
+    participant API as LicenseHub API
+    actor Customer
+    participant App as Licensed application
+
+    Vendor->>Dashboard: Register and sign in
+    Vendor->>Dashboard: Create a software product
+    Dashboard->>API: Save the product
+    Vendor->>Dashboard: Issue a license for a customer
+    Dashboard->>API: Generate and hash the license key
+    API-->>Vendor: Show the full key once
+    Vendor-->>Customer: Provide the license key
+
+    Customer->>App: Enter the key and machine name
+    App->>API: Activate with product ID and fingerprint
+    API->>API: Check status, expiry, and activation limit
+    API-->>App: Return a per-machine activation token
+    App->>App: Store the token locally
+
+    Customer->>App: Launch again later
+    App->>API: Validate token and fingerprint
+    API-->>App: Confirm the activation
+    App-->>Customer: Unlock protected content
+
+    Vendor->>Dashboard: Revoke the license or deactivate a machine
+    Dashboard->>API: Apply the management action
+    App->>API: Validate on the next launch
+    API-->>App: Reject the inactive activation
+    App-->>Customer: Keep protected content locked
+```
+
+### Demo walkthrough
+
+1. Register or sign in as the software vendor.
+2. Create a product representing the application being licensed.
+3. Issue a license, set its expiry and activation limit, and securely copy the full key shown once.
+4. Configure the Unity demo with the backend URL and that product's ID.
+5. Launch the Unity player and enter the license key and machine name.
+6. Close and reopen the player to demonstrate token-based validation without entering the key again.
+7. Return to the dashboard to inspect the machine activation, then deactivate it or revoke the license.
+8. Launch the player again and confirm that LicenseHub keeps the protected content locked.
+
+The `licensehub-config.json` file is an integration setting for this reusable demo. In a real commercial application, the software vendor would normally ship the API URL and product ID preconfigured; the customer would only enter the license key.
+
 ## Screenshots
 
 | Products | Product details |
