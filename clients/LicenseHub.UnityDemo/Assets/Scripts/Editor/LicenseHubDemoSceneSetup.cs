@@ -14,7 +14,7 @@ namespace LicenseHub.UnityDemo.Editor
     public static class LicenseHubDemoSceneSetup
     {
         private const string SetupSessionKey =
-            "LicenseHub.UnityDemo.ActivationUiSetup.v4";
+            "LicenseHub.UnityDemo.ActivationUiSetup.v5";
 
         static LicenseHubDemoSceneSetup()
         {
@@ -118,6 +118,8 @@ namespace LicenseHub.UnityDemo.Editor
                 font,
                 out TMP_Text licensedStatusText);
 
+            EnsureCloseApplicationButton(canvasObject.transform, font);
+
             ActivationPanel activationPanel =
                 panelObject.AddComponent<ActivationPanel>();
 
@@ -189,8 +191,16 @@ namespace LicenseHub.UnityDemo.Editor
                 return;
             }
 
+            VerticalLayoutGroup licensedContentLayout =
+                licensedContentRoot.GetComponent<VerticalLayoutGroup>();
+
+            if (licensedContentLayout != null)
+            {
+                licensedContentLayout.childForceExpandWidth = true;
+            }
+
             EnsureCloseApplicationButton(
-                licensedContentRoot.transform,
+                canvasObject.transform,
                 font);
 
             licensedContentRoot.SetActive(false);
@@ -370,8 +380,6 @@ namespace LicenseHub.UnityDemo.Editor
                 100);
             statusText.color = new Color32(148, 163, 184, 255);
 
-            EnsureCloseApplicationButton(content.transform, font);
-
             content.SetActive(false);
             return content;
         }
@@ -380,41 +388,36 @@ namespace LicenseHub.UnityDemo.Editor
             Transform parent,
             TMP_FontAsset font)
         {
-            VerticalLayoutGroup parentLayout =
-                parent.GetComponent<VerticalLayoutGroup>();
+            QuitApplicationButton quitBehaviour =
+                parent.GetComponentInChildren<QuitApplicationButton>(true);
 
-            if (parentLayout != null)
+            Button closeButton;
+
+            if (quitBehaviour == null)
             {
-                parentLayout.childForceExpandWidth = false;
+                closeButton = CreateButton(
+                    "CloseApplicationButton",
+                    parent,
+                    font,
+                    "Close application");
+                closeButton.gameObject.AddComponent<QuitApplicationButton>();
             }
-
-            Transform existingButton =
-                parent.Find("CloseApplicationButton");
-
-            if (existingButton != null)
+            else
             {
-                if (existingButton.GetComponent<QuitApplicationButton>() == null)
-                {
-                    existingButton.gameObject.AddComponent<QuitApplicationButton>();
-                }
-
-                return;
+                closeButton = quitBehaviour.GetComponent<Button>();
+                closeButton.transform.SetParent(parent, false);
+                closeButton.gameObject.name = "CloseApplicationButton";
             }
-
-            Button closeButton = CreateButton(
-                "CloseApplicationButton",
-                parent,
-                font,
-                "Close application");
 
             closeButton.GetComponent<Image>().color =
                 new Color32(220, 38, 38, 255);
 
-            LayoutElement layout =
-                closeButton.GetComponent<LayoutElement>();
-            layout.preferredWidth = 320;
-
-            closeButton.gameObject.AddComponent<QuitApplicationButton>();
+            RectTransform rect = closeButton.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(1, 0);
+            rect.anchorMax = new Vector2(1, 0);
+            rect.pivot = new Vector2(1, 0);
+            rect.anchoredPosition = new Vector2(-32, 32);
+            rect.sizeDelta = new Vector2(280, 58);
         }
 
         private static TMP_InputField CreateInput(
