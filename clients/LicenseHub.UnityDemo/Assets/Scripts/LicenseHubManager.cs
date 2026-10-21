@@ -27,14 +27,30 @@ namespace LicenseHub.UnityDemo
 
         private void Awake()
         {
-            if (!Uri.TryCreate(apiBaseUrl, UriKind.Absolute, out var baseAddress))
+            if (!LicenseHubConfigurationLoader.TryResolve(
+                    apiBaseUrl,
+                    productId,
+                    out string resolvedApiBaseUrl,
+                    out string resolvedProductId,
+                    out string configurationSource,
+                    out string configurationError))
+            {
+                Debug.LogError(configurationError);
+                enabled = false;
+                return;
+            }
+
+            if (!Uri.TryCreate(
+                    resolvedApiBaseUrl,
+                    UriKind.Absolute,
+                    out var baseAddress))
             {
                 Debug.LogError("LicenseHub API URL is invalid.");
                 enabled = false;
                 return;
             }
 
-            if (!Guid.TryParse(productId, out configuredProductId))
+            if (!Guid.TryParse(resolvedProductId, out configuredProductId))
             {
                 Debug.LogError("LicenseHub product ID is invalid.");
                 enabled = false;
@@ -51,7 +67,9 @@ namespace LicenseHub.UnityDemo
             machineFingerprint =
                 MachineIdentityProvider.Get(configuredProductId);
 
-            Debug.Log("LicenseHub client initialized successfully.");
+            Debug.Log(
+                "LicenseHub client initialized successfully using " +
+                $"configuration from {configurationSource}.");
         }
 
         public async Task<ActivationResult> ActivateAsync(

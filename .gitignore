@@ -46,6 +46,7 @@ build/
 /clients/LicenseHub.UnityDemo/[Uu]ser[Ss]ettings/
 /clients/LicenseHub.UnityDemo/[Mm]emoryCaptures/
 /clients/LicenseHub.UnityDemo/[Rr]ecordings/
+/clients/LicenseHub.UnityDemo/licensehub-config.json
 
 /clients/LicenseHub.UnityDemo/*.csproj
 /clients/LicenseHub.UnityDemo/*.sln
