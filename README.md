@@ -32,6 +32,12 @@ LicenseHub is a full-stack SaaS application for issuing software licenses and ma
 
 LicenseHub connects two distinct users: a software vendor manages products and licenses through the authenticated dashboard, while a customer activates the vendor's application with a license key. The customer does not need a LicenseHub account.
 
+### Video demonstration
+
+[![Watch the LicenseHub user journey](docs/screenshots/licensehub-thumbnail.png)](https://youtu.be/dtkicvvvP3A)
+
+[Watch the complete LicenseHub user journey on YouTube](https://youtu.be/dtkicvvvP3A), from issuing a license in the dashboard to activating and validating the Unity application.
+
 ```mermaid
 sequenceDiagram
     actor Vendor as Software vendor
