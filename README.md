@@ -34,9 +34,9 @@ LicenseHub connects two distinct users: a software vendor manages products and l
 
 ### Video demonstration
 
-[![Watch the LicenseHub user journey](docs/screenshots/licensehub-thumbnail.png)](https://github.com/wengyhong/licensehub/releases/download/v0.4.1/LicenseHub-user-journey-v0.4.1.mp4)
+[![Watch the LicenseHub user journey](docs/screenshots/licensehub-thumbnail.png)](https://youtu.be/dtkicvvvP3A)
 
-[Watch the complete LicenseHub user journey](https://github.com/wengyhong/licensehub/releases/download/v0.4.1/LicenseHub-user-journey-v0.4.1.mp4), from issuing a license in the dashboard to activating and validating the Unity application.
+[Watch the complete LicenseHub user journey on YouTube](https://youtu.be/dtkicvvvP3A), from issuing a license in the dashboard to activating and validating the Unity application.
 
 ```mermaid
 sequenceDiagram
